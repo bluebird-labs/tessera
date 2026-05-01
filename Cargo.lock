@@ -237,10 +237,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tessera-analyzer"
-version = "0.1.0"
-
-[[package]]
 name = "tessera-cli"
 version = "0.1.0"
 dependencies = [
@@ -257,7 +253,7 @@ name = "tessera-context"
 version = "0.1.0"
 
 [[package]]
-name = "tessera-kernel"
+name = "tessera-scip"
 version = "0.1.0"
 
 [[package]]
