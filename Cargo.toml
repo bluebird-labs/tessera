@@ -19,3 +19,43 @@ clap = { version = "4.6", features = ["derive"] }
 anstyle = "1.0"
 anstream = "0.6"
 
+tempfile = "3"
+assert_cmd = "2"
+predicates = "3"
+
+# Strict lint baseline. Groups are denied with priority = -1 so individual
+# allows below can override them. Non-group lints inherit the default
+# priority (0) and beat the group ceilings.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+rust_2018_idioms = { level = "deny", priority = -1 }
+future_incompatible = { level = "deny", priority = -1 }
+missing_debug_implementations = "deny"
+trivial_casts = "deny"
+trivial_numeric_casts = "deny"
+unreachable_pub = "deny"
+unused_extern_crates = "deny"
+unused_lifetimes = "deny"
+unused_must_use = "deny"
+unused_qualifications = "deny"
+single_use_lifetimes = "deny"
+meta_variable_misuse = "deny"
+non_ascii_idents = "deny"
+let_underscore_drop = "deny"
+elided_lifetimes_in_paths = "deny"
+unit_bindings = "deny"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+# Project-wide allowances — see Cargo.toml comments above for rationale.
+# Pedantic allowances kept narrow; everything else is enforced.
+module_name_repetitions = "allow"   # `tessera_scip::Language` style is fine
+must_use_candidate = "allow"        # noisy on small internal APIs
+missing_errors_doc = "allow"        # docs not yet a project requirement
+missing_panics_doc = "allow"
+multiple_crate_versions = "allow"   # transitive — out of our control
+cargo_common_metadata = "allow"     # not publishing yet
+redundant_pub_crate = "allow"       # conflicts with rust `unreachable_pub`

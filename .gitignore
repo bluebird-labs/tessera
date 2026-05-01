@@ -3,3 +3,4 @@
 .claude/worktrees/
 .claude/**.local.json
 /forks/
+.tessera/

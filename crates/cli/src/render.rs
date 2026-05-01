@@ -1,7 +1,7 @@
 use std::io;
 
 #[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
-pub enum Format {
+pub(crate) enum Format {
     #[default]
     Pretty,
     Json,
@@ -12,7 +12,8 @@ pub enum Format {
 /// stdout is not a TTY or when `NO_COLOR` / `CLICOLOR` ask for it. Render
 /// impls therefore write styled output unconditionally.
 #[allow(dead_code)]
-pub struct Styles {
+#[derive(Debug)]
+pub(crate) struct Styles {
     pub heading: anstyle::Style,
     pub key: anstyle::Style,
     pub dim: anstyle::Style,
@@ -35,11 +36,11 @@ impl Default for Styles {
     }
 }
 
-pub trait Render: serde::Serialize {
+pub(crate) trait Render: serde::Serialize {
     fn render_pretty(&self, w: &mut dyn io::Write, styles: &Styles) -> io::Result<()>;
 }
 
-pub fn emit<T: Render>(
+pub(crate) fn emit<T: Render>(
     value: &T,
     format: Format,
     w: &mut dyn io::Write,

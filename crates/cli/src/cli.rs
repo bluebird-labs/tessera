@@ -11,23 +11,23 @@ use crate::render::Format;
     version,
     about = "Tessera — LLM-powered coding harness",
     propagate_version = true,
-    arg_required_else_help = true,
+    arg_required_else_help = true
 )]
-pub struct Cli {
+pub(crate) struct Cli {
     /// Output format for the command's result.
     #[arg(long, value_enum, global = true, default_value = "pretty")]
-    pub format: Format,
+    pub(crate) format: Format,
 
     /// When to colorize output (overrides `NO_COLOR` / TTY detection).
     #[arg(long, value_enum, global = true, default_value = "auto")]
-    pub color: ColorChoice,
+    pub(crate) color: ColorChoice,
 
     #[command(subcommand)]
-    pub command: Command,
+    pub(crate) command: Command,
 }
 
 #[derive(Copy, Clone, Debug, Default, clap::ValueEnum)]
-pub enum ColorChoice {
+pub(crate) enum ColorChoice {
     #[default]
     Auto,
     Always,
@@ -37,9 +37,9 @@ pub enum ColorChoice {
 impl From<ColorChoice> for anstream::ColorChoice {
     fn from(c: ColorChoice) -> Self {
         match c {
-            ColorChoice::Auto => anstream::ColorChoice::Auto,
-            ColorChoice::Always => anstream::ColorChoice::Always,
-            ColorChoice::Never => anstream::ColorChoice::Never,
+            ColorChoice::Auto => Self::Auto,
+            ColorChoice::Always => Self::Always,
+            ColorChoice::Never => Self::Never,
         }
     }
 }

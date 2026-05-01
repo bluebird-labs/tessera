@@ -66,7 +66,7 @@ tessera index <path> [--output-dir <dir>]
 | Argument | Description | Default |
 | --- | --- | --- |
 | `<path>` | Path to the project directory to index. Required positional. | — |
-| `--output-dir` / `-o` | Directory in which to write the per-language `.scip` files. | `<path>` |
+| `--output-dir` / `-o` | Directory in which to write the per-language `.scip` files. | `<path>/.tessera` |
 
 Output filenames are fixed by language: `rust.scip`, `go.scip`, `typescript.scip`, `python.scip`. `<path>` must be an existing directory. The command exits non-zero on invalid input, on no detected languages, or when no indexer succeeds.
 
@@ -78,7 +78,8 @@ Output filenames are fixed by language: `rust.scip`, `go.scip`, `typescript.scip
 tessera index <path>
   │
   ├─ 1. Resolve <path> to a canonical absolute directory.
-  │     Resolve <output-dir> (default: <path>); create if it does not exist.
+  │     Resolve <output-dir> (default: <path>/.tessera); create if it does
+  │     not exist.
   │
   ├─ 2. Detect languages from root-level manifests (§6).
   │
@@ -139,7 +140,7 @@ The orchestrator invokes each indexer per its native CLI convention and captures
 
 ## 8. Output Files
 
-Tessera writes one `.scip` file per detected and successfully-indexed language to `<output-dir>` (default: `<path>`). Filenames are fixed:
+Tessera writes one `.scip` file per detected and successfully-indexed language to `<output-dir>` (default: `<path>/.tessera`). Filenames are fixed:
 
 | Language | Output filename |
 | --- | --- |
