@@ -1,2 +1,5 @@
 /target
 .idea/
+.claude/worktrees/
+.claude/**.local.json
+/forks/
