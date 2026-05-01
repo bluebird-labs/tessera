@@ -249,10 +249,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tessera-context"
-version = "0.1.0"
-
-[[package]]
 name = "tessera-scip"
 version = "0.1.0"
 

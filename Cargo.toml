@@ -9,7 +9,6 @@ rust-version = "1.85"
 version = "0.1.0"
 
 [workspace.dependencies]
-tessera-context = { path = "crates/context" }
 tessera-scip = { path = "crates/scip" }
 
 serde = { version = "1.0", features = ["derive"] }
