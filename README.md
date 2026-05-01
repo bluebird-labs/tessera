@@ -1,6 +1,8 @@
 # Tessera
 
-An LLM-powered coding harness. Rust monorepo, very early stage.
+An LLM coding harness for experienced engineers. Deterministic-first, fast, reliable — and a deliberate departure from the chat-window UX.
+
+Rust monorepo, very early stage.
 
 ## Repository layout
 
