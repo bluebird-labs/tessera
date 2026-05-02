@@ -9,11 +9,13 @@
   #status { position: fixed; top: 12px; right: 16px; font-size: 12px; opacity: 0.6; pointer-events: none; }
   #ui {
     position: fixed; top: 12px; left: 12px; z-index: 5;
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    display: flex; flex-direction: column; gap: 8px;
     padding: 8px 10px; background: rgba(15, 23, 42, 0.85);
     border: 1px solid #334155; border-radius: 8px;
     font-size: 12px; backdrop-filter: blur(6px);
+    max-width: calc(100vw - 24px);
   }
+  #ui .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #ui input[type="search"] {
     width: 220px; padding: 5px 8px; background: #0b1220; color: #e2e8f0;
     border: 1px solid #334155; border-radius: 4px; font: inherit; outline: none;
@@ -30,6 +32,21 @@
   #ui button:hover { background: #1e293b; color: #f1f5f9; }
   #ui button.active { background: #6366f1; color: #fff; border-color: #6366f1; }
   #ui .sep { width: 1px; align-self: stretch; background: #334155; }
+  #filters { max-width: 64vw; }
+  #filters .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 8px 3px 6px; border: 1px solid #334155; border-radius: 999px;
+    background: #0b1220; color: #64748b; font: inherit; font-size: 11px;
+    cursor: pointer; user-select: none;
+  }
+  #filters .chip:hover { background: #1e293b; color: #cbd5e1; }
+  #filters .chip.on  { color: #f1f5f9; border-color: var(--accent, #6366f1); background: rgba(99,102,241,0.12); }
+  #filters .chip .swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #475569); border: 1px solid rgba(255,255,255,0.18); }
+  #filters .chip:not(.on) .swatch { opacity: 0.35; }
+  #filters .chip .count { color: inherit; opacity: 0.7; font-variant-numeric: tabular-nums; }
+  #filters .meta { color: #64748b; padding: 0 4px; }
+  #filters .meta button { padding: 0 4px; background: none; border: none; color: #94a3b8; cursor: pointer; font: inherit; font-size: 11px; }
+  #filters .meta button:hover { color: #f1f5f9; }
   #tip {
     position: fixed; pointer-events: none; display: none;
     max-width: 360px; padding: 8px 10px; background: rgba(15, 23, 42, 0.95);
@@ -44,14 +61,17 @@
 </head>
 <body>
   <div id="ui">
-    <input id="search" type="search" placeholder="filter by label…" autocomplete="off" />
-    <div class="group" id="layouts">
-      <button data-layout="fcose" class="active">fcose</button>
-      <button data-layout="dagre">dagre</button>
-      <button data-layout="breadthfirst">bfs</button>
+    <div class="row">
+      <input id="search" type="search" placeholder="filter by label…" autocomplete="off" />
+      <div class="group" id="layouts">
+        <button data-layout="fcose" class="active">fcose</button>
+        <button data-layout="dagre">dagre</button>
+        <button data-layout="breadthfirst">bfs</button>
+      </div>
+      <div class="sep"></div>
+      <button id="fit">fit</button>
     </div>
-    <div class="sep"></div>
-    <button id="fit">fit</button>
+    <div class="row" id="filters"></div>
   </div>
   <div id="cy"></div>
   <div id="status">loading…</div>
@@ -76,6 +96,17 @@
 
     const status = document.getElementById('status');
     const ACCENT = '#94a3b8';
+
+    // High-level architectural symbols. We default the viewer to types +
+    // top-level scopes; methods/fields/locals are noisy and start hidden.
+    // If a graph contains none of these, fall back to showing every kind.
+    const HIGH_LEVEL_KINDS = new Set([
+      'class', 'struct', 'enum', 'trait', 'interface',
+      'module', 'namespace', 'package', 'file',
+    ]);
+
+    let currentLayoutCfg = LAYOUTS.fcose;
+    let activeKinds = new Set();
 
     fetch('.tessera/graph.json')
       .then(r => r.json())
@@ -132,13 +163,21 @@
       }
 
       let maxDegree = 1;
+      const kindCounts = new Map();
+      const kindColors = new Map();
       for (const n of nodes) {
         const d = degree.get(n.data.id) || 0;
         n.data.degree = d;
         if (d > maxDegree) maxDegree = d;
+
+        const k = n.data.kind || 'unknown';
+        kindCounts.set(k, (kindCounts.get(k) || 0) + 1);
+        if (!kindColors.has(k) && (n.data.color || n.data.fillcolor)) {
+          kindColors.set(k, n.data.color || n.data.fillcolor);
+        }
       }
 
-      return { nodes, edges, maxDegree };
+      return { nodes, edges, maxDegree, kindCounts, kindColors };
     }
 
     // Map Graphviz "shape" attribute to a cytoscape shape. Cytoscape doesn't
@@ -181,6 +220,7 @@
         { selector: '.hl',    style: { 'opacity': 1, 'z-index': 10 } },
         { selector: 'node.hl', style: { 'border-width': 3, 'border-color': '#facc15' } },
         { selector: 'edge.hl', style: { 'line-color': '#facc15', 'target-arrow-color': '#facc15', 'width': 2, 'opacity': 1 } },
+        { selector: '.hidden', style: { 'display': 'none' } },
       ];
     }
 
@@ -241,12 +281,85 @@
       cy.on('viewport', hideTooltip);
     }
 
+    function applyKindFilter(cy) {
+      cy.batch(() => {
+        cy.nodes().forEach(n => {
+          const visible = activeKinds.has(n.data('kind') || 'unknown');
+          n.toggleClass('hidden', !visible);
+          if (!visible) n.removeClass('hl faded');
+        });
+        cy.edges().forEach(e => {
+          const hide = e.source().hasClass('hidden') || e.target().hasClass('hidden');
+          e.toggleClass('hidden', hide);
+          if (hide) e.removeClass('hl faded');
+        });
+      });
+      updateStatus(cy);
+    }
+
+    function runLayout(cy) {
+      cy.layout({ ...currentLayoutCfg, eles: cy.elements(':visible') }).run();
+    }
+
+    function buildFilters(cy, kindCounts, kindColors) {
+      const container = document.getElementById('filters');
+      container.innerHTML = '';
+
+      const sorted = [...kindCounts.entries()].sort((a, b) => b[1] - a[1]);
+      const hasHighLevel = sorted.some(([k]) => HIGH_LEVEL_KINDS.has(k));
+      activeKinds = new Set(sorted
+        .map(([k]) => k)
+        .filter(k => hasHighLevel ? HIGH_LEVEL_KINDS.has(k) : true));
+
+      const meta = document.createElement('span');
+      meta.className = 'meta';
+      meta.innerHTML = '<button id="filterAll">all</button> · <button id="filterNone">none</button> · <button id="filterDefault">default</button>';
+      container.appendChild(meta);
+
+      const chips = new Map();
+      for (const [kind, count] of sorted) {
+        const chip = document.createElement('button');
+        chip.className = 'chip' + (activeKinds.has(kind) ? ' on' : '');
+        chip.dataset.kind = kind;
+        chip.style.setProperty('--accent', kindColors.get(kind) || '#475569');
+        chip.innerHTML = `<span class="swatch"></span>${escapeHtml(kind)}<span class="count">${count}</span>`;
+        chip.addEventListener('click', () => {
+          if (activeKinds.has(kind)) activeKinds.delete(kind);
+          else activeKinds.add(kind);
+          chip.classList.toggle('on');
+          applyKindFilter(cy);
+          runLayout(cy);
+        });
+        container.appendChild(chip);
+        chips.set(kind, chip);
+      }
+
+      const setActive = next => {
+        activeKinds = new Set(next);
+        for (const [k, chip] of chips) chip.classList.toggle('on', activeKinds.has(k));
+        applyKindFilter(cy);
+        runLayout(cy);
+      };
+      document.getElementById('filterAll').addEventListener('click', () => setActive(sorted.map(([k]) => k)));
+      document.getElementById('filterNone').addEventListener('click', () => setActive([]));
+      document.getElementById('filterDefault').addEventListener('click', () =>
+        setActive(sorted.map(([k]) => k).filter(k => hasHighLevel ? HIGH_LEVEL_KINDS.has(k) : true)));
+    }
+
+    function updateStatus(cy) {
+      const totalN = cy.nodes().length, totalE = cy.edges().length;
+      const visN = cy.nodes(':visible').length, visE = cy.edges(':visible').length;
+      status.textContent = (visN === totalN && visE === totalE)
+        ? `${totalN} nodes · ${totalE} edges`
+        : `${visN}/${totalN} nodes · ${visE}/${totalE} edges`;
+    }
+
     function applySearch(cy, q) {
       const needle = q.trim().toLowerCase();
       if (!needle) { clearHighlight(cy); return; }
       cy.batch(() => {
-        cy.elements().addClass('faded').removeClass('hl');
-        cy.nodes().forEach(n => {
+        cy.elements(':visible').addClass('faded').removeClass('hl');
+        cy.nodes(':visible').forEach(n => {
           const label = (n.data('label') || '').toLowerCase();
           const name  = (n.data('name')  || '').toLowerCase();
           if (label.includes(needle) || name.includes(needle)) {
@@ -266,27 +379,30 @@
           const cfg = LAYOUTS[btn.dataset.layout];
           if (!cfg) return;
           layoutButtons.forEach(b => b.classList.toggle('active', b === btn));
-          cy.layout(cfg).run();
+          currentLayoutCfg = cfg;
+          runLayout(cy);
         });
       });
 
-      document.getElementById('fit').addEventListener('click', () => cy.fit(undefined, 40));
+      document.getElementById('fit').addEventListener('click', () => cy.fit(cy.elements(':visible'), 40));
     }
 
     function buildGraph(gv) {
-      const { nodes, edges, maxDegree } = normalizeGraphvizJson(gv);
-      status.textContent = `${nodes.length} nodes · ${edges.length} edges`;
+      const { nodes, edges, maxDegree, kindCounts, kindColors } = normalizeGraphvizJson(gv);
 
       const cy = cytoscape({
         container: document.getElementById('cy'),
         elements: [...nodes, ...edges],
         style: buildStylesheet(maxDegree),
-        layout: LAYOUTS.fcose,
+        layout: { name: 'null' },
         wheelSensitivity: 0.2,
       });
 
+      buildFilters(cy, kindCounts, kindColors);
+      applyKindFilter(cy);
       wireEvents(cy);
       wireUi(cy);
+      runLayout(cy);
     }
   </script>
 </body>
