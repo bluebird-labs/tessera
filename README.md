@@ -15,7 +15,7 @@ crates/
   render/         # generic graph projection + Renderer trait + DOT renderer
   render-scip/    # SCIP-from-SQLite adapter producing a RenderGraph
 docs/
-  rfcs/           # RFCs (0003 = SQLite mirror, 0004 = tessera render)
+  rfcs/           # RFCs (0003 = SQLite mirror, 0004 = tessera render, 0005 = occurrence-derived edges)
   fixtures.md     # toolchains and setup for analyzer test fixtures
   test-repos.md   # candidate fixture repos per language
 forks/            # gitignored — third-party repos used as analyzer fixtures
@@ -68,11 +68,13 @@ sqlite3 <project>/.tessera/index.db .tables   # inspect what landed
 
 tessera render scip <project>        # → <project>/.tessera/render.dot
 sfdp -Tsvg <project>/.tessera/render.dot > graph.svg
+dot  -Tjson <project>/.tessera/render.dot > graph.json   # for viewer.html
+open viewer.html                                          # interactive cytoscape viewer
 ```
 
 `tessera index` invokes `rust-analyzer scip` / `scip-go` / `scip-typescript` / `scip-python` for each detected language and ingests the result into one SQLite database. See [`docs/rfcs/0003-tessera-index-sqlite-mirror.md`](docs/rfcs/0003-tessera-index-sqlite-mirror.md) for the schema and pipeline.
 
-`tessera render scip <project>` projects the SCIP-derived graph into a Graphviz DOT file. Use `sfdp` (not `dot`) as the layout engine — it scales to thousands of nodes where `dot` produces a hairball. Filter with `--paths`, `--exclude-paths`, `--kinds`, `--edge-kinds`, `--seeds`/`--hops`. See [`docs/rfcs/0004-tessera-render.md`](docs/rfcs/0004-tessera-render.md) for the architecture.
+`tessera render scip <project>` projects the SCIP-derived graph into a Graphviz DOT file. Use `sfdp` (not `dot`) as the layout engine — it scales to thousands of nodes where `dot` produces a hairball. Filter with `--paths`, `--exclude-paths`, `--kinds`, `--edge-kinds`, `--seeds`/`--hops`. See [`docs/rfcs/0004-tessera-render.md`](docs/rfcs/0004-tessera-render.md) for the architecture. Reference edges are derived primarily from `occurrences` (most language indexers leave SCIP `relationships` sparse or empty); see [`docs/rfcs/0005-occurrence-derived-edges.md`](docs/rfcs/0005-occurrence-derived-edges.md) for the algorithm.
 
 Global flags available on every subcommand:
 
