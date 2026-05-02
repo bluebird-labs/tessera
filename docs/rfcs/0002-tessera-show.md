@@ -2,10 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Superseded |
 | Author | Sylvain Estevez |
 | Created | 2026-05-01 |
 | Replaces | — |
+| Superseded by | RFC 0003 (the `.scip` file artifact this RFC inspects no longer exists; readability is now `sqlite3 index.db`) |
 | Related | RFC 0001 (`tessera index` orchestrator); (future) RFC: `tessera query` |
 
 ---

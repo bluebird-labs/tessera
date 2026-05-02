@@ -2,10 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft |
+| Status | Superseded |
 | Author | Sylvain Estevez |
 | Created | 2026-05-01 |
 | Replaces | — |
+| Superseded by | RFC 0003 |
 | Related | (future) RFC: Internal Project Graph; RFC: Native in-process indexers; RFC: Consumers (retrieval, impact, navigation, codemod, overview) |
 
 ---
