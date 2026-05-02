@@ -1,6 +1,8 @@
 # Tessera
 
-An LLM coding harness for experienced engineers. Deterministic-first, fast, reliable — and a deliberate departure from the chat-window UX.
+A knowledge-graph-centered ecosystem for engineers staying in architectural control as AI coding agents take on more of the work. Tessera models code and business domain in one substrate, runs work through a cascade of frozen layers (contracts → use cases → placement → implementation), and surfaces the graph through a desktop app, CLI, MCP server, and (commercially) a cloud-backed shared graph. See [`ABOUT.md`](ABOUT.md) for the full positioning.
+
+This repo is the open-core foundation. Today that's the `tessera` CLI and the SQLite-backed *structural* graph it produces from SCIP indexers — the substrate the rest of the ecosystem sits on top of. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` are built on top of this substrate and are not yet in this repo.
 
 Rust monorepo, very early stage.
 
@@ -9,9 +11,11 @@ Rust monorepo, very early stage.
 ```
 crates/
   cli/            # `tessera` binary
-  scip/           # SCIP-based analyzer (placeholder)
+  scip/           # SCIP indexer orchestration + SQLite mirror ingestion
+  render/         # generic graph projection + Renderer trait + DOT renderer
+  render-scip/    # SCIP-from-SQLite adapter producing a RenderGraph
 docs/
-  rfcs/           # RFCs (see 0001-project-graph-schema.md)
+  rfcs/           # RFCs (0003 = SQLite mirror, 0004 = tessera render)
   fixtures.md     # toolchains and setup for analyzer test fixtures
   test-repos.md   # candidate fixture repos per language
 forks/            # gitignored — third-party repos used as analyzer fixtures
@@ -57,7 +61,18 @@ cargo install --path crates/cli
 tessera --help
 tessera version                      # pretty mode (default)
 tessera version --format json        # machine-readable
+
+tessera index <project>              # → <project>/.tessera/index.db
+tessera index <project> -o my.db     # custom output path
+sqlite3 <project>/.tessera/index.db .tables   # inspect what landed
+
+tessera render scip <project>        # → <project>/.tessera/render.dot
+sfdp -Tsvg <project>/.tessera/render.dot > graph.svg
 ```
+
+`tessera index` invokes `rust-analyzer scip` / `scip-go` / `scip-typescript` / `scip-python` for each detected language and ingests the result into one SQLite database. See [`docs/rfcs/0003-tessera-index-sqlite-mirror.md`](docs/rfcs/0003-tessera-index-sqlite-mirror.md) for the schema and pipeline.
+
+`tessera render scip <project>` projects the SCIP-derived graph into a Graphviz DOT file. Use `sfdp` (not `dot`) as the layout engine — it scales to thousands of nodes where `dot` produces a hairball. Filter with `--paths`, `--exclude-paths`, `--kinds`, `--edge-kinds`, `--seeds`/`--hops`. See [`docs/rfcs/0004-tessera-render.md`](docs/rfcs/0004-tessera-render.md) for the architecture.
 
 Global flags available on every subcommand:
 

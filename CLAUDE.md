@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project context
+
+[`ABOUT.md`](ABOUT.md) is the source of truth for what Tessera is. Briefly: a knowledge-graph-centered ecosystem (desktop app, CLI, MCP server, cloud-backed graph) for engineers retaining architectural control as agents take on more work. Code and domain live in one graph; work flows through a cascade of frozen layers (contracts → use cases → placement → implementation), with annotations bound to stable node IDs and upstream edits propagating downstream automatically. Open-core: CLI, MCP server, single-user desktop app, and the graph schema/modeling primitives are OSS; the shared cloud graph + team/enterprise integrations are commercial.
+
+This repo is the open-core *foundation*. Today it ships the `tessera` CLI and the SQLite-backed *structural* graph (per-language SCIP indexer output ingested into a SCIP-isomorphic SQLite mirror — see RFC 0003). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
+
 ## Build & test
 
 Workspace uses Cargo with `resolver = "3"` and edition 2024; toolchain is pinned to 1.85 by `rust-toolchain.toml` (rustup fetches it on first build).
@@ -19,7 +25,7 @@ cargo clippy --workspace --all-targets
 ## Workspace layout
 
 - `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
-- `crates/scip` — `tessera-scip` library crate. Currently a placeholder (empty `lib.rs`); will host SCIP-related code.
+- `crates/scip` — `tessera-scip` library crate. Hosts language detection (`detect`), per-language indexer command mapping (`indexer`), the `orchestrate` pipeline (with `Reporter`/`Sink` traits), and the `mirror` module that owns the SQLite schema + ingestion (`MirrorDb`).
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
 
 ## CLI architecture
@@ -35,4 +41,4 @@ Tests in `render.rs` show the pattern for verifying both modes plus `anstream::S
 
 ## RFCs
 
-`docs/rfcs/` holds design RFCs. **RFC 0001** (`0001-project-graph-schema.md`) specifies `tessera index <path>`: an orchestrator that shells out to per-language SCIP indexers (`rust-analyzer scip`, `scip-go`, `scip-typescript`, `scip-python`), runs them sequentially with `cwd = <path>`, moves each `<path>/index.scip` to `<output-dir>/<lang>.scip` between runs, and exits 0 if at least one succeeded. Per the RFC, Tessera does **not** parse, merge, or rewrite SCIP payloads in v1 — files are byte-identical to upstream output. When implementing v1 of `tessera index`, treat that RFC as the spec.
+`docs/rfcs/` holds design RFCs. **RFC 0003** (`0003-tessera-index-sqlite-mirror.md`) is the current spec for `tessera index <path>`: shell out to per-language SCIP indexers (`rust-analyzer scip`, `scip-go`, `scip-typescript`, `scip-python`) sequentially with `cwd = <path>`, decode each `<path>/index.scip` in-process via the [`scip`](https://crates.io/crates/scip) crate, and ingest into a single SQLite database (default `<path>/.tessera/index.db`) whose schema is a SCIP-isomorphic mirror. No `.scip` files remain on disk after `tessera index` returns; per-language transactions, exit 0 if at least one language committed. Ingestion + schema live in `tessera-scip::mirror` (built on `rusqlite` with the `bundled` feature). RFC 0001 (file-mover) and RFC 0002 (`tessera show`) are superseded by 0003 — the SQLite artifact is inspectable via `sqlite3 <path>/.tessera/index.db`.
