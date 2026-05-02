@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>tessera graph viewer</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #0f172a; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  #cy { position: absolute; inset: 0; }
+  #status { position: fixed; top: 12px; right: 16px; font-size: 12px; opacity: 0.6; }
+</style>
+</head>
+<body>
+  <div id="cy"></div>
+  <div id="status">loading…</div>
+
+  <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/layout-base@2.0.1/layout-base.js"></script>
+  <script src="https://unpkg.com/cose-base@2.2.0/cose-base.js"></script>
+  <script src="https://unpkg.com/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
+
+  <script>
+    cytoscape.use(window.cytoscapeFcose);
+
+    const status = document.getElementById('status');
+
+    fetch('graph.json')
+      .then(r => r.json())
+      .then(buildGraph)
+      .catch(err => { status.textContent = 'error: ' + err.message; });
+
+    function buildGraph(gv) {
+      const objects = gv.objects || [];
+      const edges = gv.edges || [];
+
+      const nodes = objects.map(o => ({
+        data: { id: String(o._gvid), label: o.label || o.name || String(o._gvid) }
+      }));
+      const cyEdges = edges.map(e => ({
+        data: { id: 'e' + e._gvid, source: String(e.tail), target: String(e.head) }
+      }));
+
+      status.textContent = `${nodes.length} nodes · ${cyEdges.length} edges`;
+
+      cytoscape({
+        container: document.getElementById('cy'),
+        elements: [...nodes, ...cyEdges],
+        style: [
+          { selector: 'node', style: {
+              'background-color': '#94a3b8',
+              'label': 'data(label)',
+              'font-size': 8,
+              'color': '#e2e8f0',
+              'width': 12, 'height': 12,
+          } },
+          { selector: 'edge', style: {
+              'line-color': '#334155',
+              'width': 1,
+              'curve-style': 'bezier',
+              'target-arrow-shape': 'triangle',
+              'target-arrow-color': '#334155',
+              'arrow-scale': 0.8,
+          } },
+        ],
+        layout: { name: 'fcose', animate: true, randomize: true, nodeRepulsion: 4500 },
+        wheelSensitivity: 0.2,
+      });
+    }
+  </script>
+</body>
+</html>
