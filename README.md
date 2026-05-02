@@ -67,8 +67,8 @@ tessera index <project> -o my.db     # custom output path
 sqlite3 <project>/.tessera/index.db .tables   # inspect what landed
 
 tessera render scip <project>        # → <project>/.tessera/render.dot
-sfdp -Tsvg <project>/.tessera/render.dot > graph.svg
-dot  -Tjson <project>/.tessera/render.dot > graph.json   # for viewer.html
+sfdp -Tsvg  <project>/.tessera/render.dot > <project>/.tessera/graph.svg
+dot  -Tjson <project>/.tessera/render.dot > <project>/.tessera/graph.json
 open viewer.html                                          # interactive cytoscape viewer
 ```
 
