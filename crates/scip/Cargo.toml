@@ -5,6 +5,11 @@ edition.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+scip = { workspace = true }
+protobuf = { workspace = true }
+rusqlite = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

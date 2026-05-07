@@ -24,15 +24,4 @@ impl Language {
             Self::Python => "python",
         }
     }
-
-    /// Filename Tessera writes per RFC 0001 §8.
-    #[must_use]
-    pub const fn output_filename(self) -> &'static str {
-        match self {
-            Self::Rust => "rust.scip",
-            Self::Go => "go.scip",
-            Self::TypeScript => "typescript.scip",
-            Self::Python => "python.scip",
-        }
-    }
 }

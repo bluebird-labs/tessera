@@ -163,27 +163,27 @@ CREATE TABLE documents (
 CREATE TABLE symbols (
   id                INTEGER PRIMARY KEY,
   language          TEXT NOT NULL REFERENCES metadata(language),
-  document_id       INTEGER REFERENCES documents(id),  -- nullable for external symbols
-  scip_symbol       TEXT NOT NULL,            -- canonical SCIP symbol string
+  document_id       INTEGER REFERENCES documents(id),  -- nullable for external + placeholder rows
+  scip_symbol       TEXT NOT NULL,            -- canonical SCIP symbol string; not unique within a language
   kind              INTEGER NOT NULL,         -- SymbolInformation.Kind
   display_name      TEXT,
-  documentation     TEXT,                     -- joined newline-separated
-  signature_documentation TEXT,
-  enclosing_symbol  TEXT,
-  UNIQUE(language, scip_symbol)
+  documentation     TEXT,                     -- JSON array of strings (lossless)
+  signature_documentation BLOB,                -- nested SCIP `Document` proto, serialized
+  enclosing_symbol  TEXT
 );
 
 CREATE TABLE occurrences (
   id                INTEGER PRIMARY KEY,
   document_id       INTEGER NOT NULL REFERENCES documents(id),
   symbol_id         INTEGER NOT NULL REFERENCES symbols(id),
-  start_line        INTEGER NOT NULL,
-  start_character   INTEGER NOT NULL,
-  end_line          INTEGER NOT NULL,
-  end_character     INTEGER NOT NULL,
+  range_raw         TEXT NOT NULL,            -- JSON int32 array; the original Occurrence.range
+  start_line        INTEGER,                  -- decoded coordinates; NULL when range_raw
+  start_character   INTEGER,                  --   has an unexpected element count
+  end_line          INTEGER,
+  end_character     INTEGER,
   symbol_roles      INTEGER NOT NULL,         -- bitfield, SymbolRole
   syntax_kind       INTEGER,
-  override_documentation TEXT,                -- joined newline-separated
+  override_documentation TEXT,                -- JSON array of strings (lossless)
   enclosing_range   TEXT                      -- JSON [sl, sc, el, ec]; nullable
 );
 
@@ -193,8 +193,7 @@ CREATE TABLE relationships (
   is_reference      INTEGER NOT NULL,         -- 0/1
   is_implementation INTEGER NOT NULL,
   is_type_definition INTEGER NOT NULL,
-  is_definition     INTEGER NOT NULL,
-  PRIMARY KEY (symbol_id, related_symbol)
+  is_definition     INTEGER NOT NULL
 );
 
 CREATE TABLE diagnostics (
@@ -210,9 +209,16 @@ CREATE TABLE diagnostics (
 Notes:
 
 - **External symbols.** SCIP's `Index.external_symbols` list is folded into `symbols` with `document_id IS NULL`. The `symbols` table is the single source of truth for symbol facts regardless of whether the symbol is local to a document or external; a discriminator is unnecessary because `document_id` carries it.
-- **Relationships.** The related symbol is stored as a string rather than as an FK, because SCIP relationships can target external symbols not yet ingested in another language's pass. Resolving these strings to symbol IDs is a derivation step (and a graph-layer concern).
-- **Indices.** Implementation will add indices on `(symbol_id)` for `occurrences` and `relationships`, on `(document_id)` for `occurrences`, and on `scip_symbol` for `symbols`. The exact set is tuned during implementation.
+- **Placeholder symbols.** Occurrences may reference symbols not declared anywhere in this language's index (typically cross-language references). Each such reference inserts a placeholder row into `symbols` with `document_id IS NULL` and `kind = 0` so the FK from `occurrences.symbol_id` is satisfied. The `IngestStats.symbols` count includes these.
+- **Duplicate `scip_symbol` within a language.** The SCIP wire format permits the same `scip_symbol` to appear in multiple `SymbolInformation` payloads (across documents, or once in-doc and once in `external_symbols`). The mirror preserves every occurrence as its own row — no `UNIQUE` constraint on `(language, scip_symbol)` — so each duplicate's `documentation`, `signature_documentation`, and attached `relationships` survive. Occurrence FKs resolve to the first-inserted row.
+- **Documentation lists.** `SymbolInformation.documentation` and `Occurrence.override_documentation` are `repeated string` in the SCIP proto. Storing them as a single newline-joined column would be lossy whenever an entry contains a newline, so both columns hold a JSON array of strings instead.
+- **Signature documentation.** `SymbolInformation.signature_documentation` is itself a nested `Document` proto. The mirror stores it as a `BLOB` containing the serialized proto bytes — lossless, but opaque to SQL queries. A future RFC may promote it to its own table if real consumers need to query inside it.
+- **Occurrence ranges.** `Occurrence.range` is `repeated int32` of either 3 or 4 elements per the SCIP spec, but the proto admits any length. `range_raw` always holds the JSON-encoded raw vec (lossless); the four `start_*`/`end_*` columns hold the decoded coordinates when the standard 3- or 4-form applies, and `NULL` otherwise. Query malformed ranges with `WHERE start_line IS NULL`.
+- **Relationships.** The related symbol is stored as a string rather than as an FK, because SCIP relationships can target external symbols not yet ingested in another language's pass. Resolving these strings to symbol IDs is a derivation step (and a graph-layer concern). No primary key on `(symbol_id, related_symbol)`: the proto allows multiple rows from the same source to the same target with different boolean flag combinations.
+- **Forward-compat unknown fields.** Protobuf `unknown_fields` (wire data the linked `scip` crate version doesn't understand) cannot be projected into the relational schema and is *not* stored. The number of decoded messages whose `unknown_fields` was non-empty is reported as `IngestStats.unknown_field_messages` and surfaces both in the CLI report and as a stderr warning whenever it is non-zero.
+- **Indices.** Implementation adds indices on `(symbol_id)` for `occurrences` and `relationships`, on `(document_id)` for `occurrences`, on `(occurrence_id)` for `diagnostics`, and on `(language, scip_symbol)` for `symbols`. The exact set is tuned during implementation.
 - **`text_encoding`** lives on `metadata`, not `documents`, because SCIP scopes encoding at the index level.
+- **`indexed_at`** is stored as INTEGER seconds since the Unix epoch (no extra date dep). Use `select datetime(indexed_at, 'unixepoch') from metadata` for a human-readable timestamp.
 
 ---
 

@@ -45,20 +45,27 @@ fn no_indexers_on_path_exits_nonzero_with_skips() {
         .stdout(contains("typescript").and(contains("scip-typescript")))
         .stdout(contains("python").and(contains("scip-python")))
         .stderr(contains("rust-analyzer").and(contains("not found on PATH")));
+
+    // Per RFC 0003 §9, the DB is created before the indexer loop runs,
+    // so an "all skipped" run still leaves the schema'd file on disk.
+    let db = project.path().join(".tessera").join("index.db");
+    assert!(db.exists(), "expected schema-only DB at {}", db.display());
 }
 
 #[test]
-fn synthetic_rust_indexer_succeeds() {
+fn synthetic_rust_indexer_writes_default_db() {
     let project = tempfile::tempdir().unwrap();
     touch(project.path(), "Cargo.toml");
-    let output = tempfile::tempdir().unwrap();
     let bin_dir = tempfile::tempdir().unwrap();
 
     // rust-analyzer is invoked as `rust-analyzer scip <path>`; $2 is the path.
+    // An empty file decodes as a default-valued SCIP `Index` proto, which
+    // exercises the full ingest pipeline (metadata row inserted, zero
+    // documents).
     write_executable(
         bin_dir.path(),
         "rust-analyzer",
-        "#!/bin/sh\nprintf 'hi' > \"$2/index.scip\"\n",
+        "#!/bin/sh\n: > \"$2/index.scip\"\n",
     );
 
     let assert = Command::cargo_bin("tessera")
@@ -66,8 +73,6 @@ fn synthetic_rust_indexer_succeeds() {
         .args([
             "index",
             project.path().to_str().unwrap(),
-            "-o",
-            output.path().to_str().unwrap(),
             "--color",
             "never",
         ])
@@ -76,14 +81,48 @@ fn synthetic_rust_indexer_succeeds() {
 
     assert.success();
 
-    let produced = output.path().join("rust.scip");
-    assert!(
-        produced.exists(),
-        "expected {} to exist",
-        produced.display()
-    );
-    assert_eq!(std::fs::read(&produced).unwrap(), b"hi");
+    let db = project.path().join(".tessera").join("index.db");
+    assert!(db.exists(), "expected DB at {}", db.display());
     assert!(!project.path().join("index.scip").exists());
+
+    let conn = rusqlite::Connection::open(&db).unwrap();
+    let lang: String = conn
+        .query_row("SELECT language FROM metadata", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(lang, "rust");
+}
+
+#[test]
+fn synthetic_rust_indexer_writes_custom_output() {
+    let project = tempfile::tempdir().unwrap();
+    touch(project.path(), "Cargo.toml");
+    let bin_dir = tempfile::tempdir().unwrap();
+    let out_dir = tempfile::tempdir().unwrap();
+    let custom_db = out_dir.path().join("nested").join("custom.db");
+
+    write_executable(
+        bin_dir.path(),
+        "rust-analyzer",
+        "#!/bin/sh\n: > \"$2/index.scip\"\n",
+    );
+
+    let assert = Command::cargo_bin("tessera")
+        .unwrap()
+        .args([
+            "index",
+            project.path().to_str().unwrap(),
+            "-o",
+            custom_db.to_str().unwrap(),
+            "--color",
+            "never",
+        ])
+        .env("PATH", bin_dir.path())
+        .assert();
+
+    assert.success();
+    assert!(custom_db.exists(), "expected DB at {}", custom_db.display());
+    // Default location must NOT also have been created.
+    assert!(!project.path().join(".tessera").join("index.db").exists());
 }
 
 #[test]
@@ -101,7 +140,7 @@ fn missing_path_exits_nonzero() {
 }
 
 #[test]
-fn empty_project_exits_nonzero() {
+fn empty_project_exits_nonzero_and_creates_no_db() {
     let project = tempfile::tempdir().unwrap();
     let assert = Command::cargo_bin("tessera")
         .unwrap()
@@ -115,4 +154,7 @@ fn empty_project_exits_nonzero() {
     assert
         .failure()
         .stderr(contains("no language manifests detected"));
+
+    // Detection failure happens before DB creation, so nothing is on disk.
+    assert!(!project.path().join(".tessera").exists());
 }
