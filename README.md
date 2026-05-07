@@ -12,10 +12,8 @@ Rust monorepo, very early stage.
 crates/
   cli/            # `tessera` binary
   scip/           # SCIP indexer orchestration + SQLite mirror ingestion
-  render/         # generic graph projection + Renderer trait + DOT renderer
-  render-scip/    # SCIP-from-SQLite adapter producing a RenderGraph
 docs/
-  rfcs/           # RFCs (0003 = SQLite mirror, 0004 = tessera render, 0005 = occurrence-derived edges)
+  rfcs/           # RFCs (0003 = SQLite mirror)
   fixtures.md     # toolchains and setup for analyzer test fixtures
   test-repos.md   # candidate fixture repos per language
 forks/            # gitignored — third-party repos used as analyzer fixtures
@@ -38,8 +36,8 @@ The binary is produced at `target/debug/tessera`.
 For active development, symlink the debug build into a directory on your `PATH` once. Subsequent `cargo build`s update the binary in place — no re-install needed.
 
 ```sh
-# pick any directory already on your PATH (~/.local/bin, ~/bin, /usr/local/bin, ...)
-ln -s "$PWD/target/debug/tessera" ~/.local/bin/tessera
+# pick any directory already on your PATH (~/.attic/bin, ~/bin, /usr/local/bin, ...)
+ln -s "$PWD/target/debug/tessera" ~/.attic/bin/tessera
 ```
 
 Verify:
@@ -65,16 +63,9 @@ tessera version --format json        # machine-readable
 tessera index <project>              # → <project>/.tessera/index.db
 tessera index <project> -o my.db     # custom output path
 sqlite3 <project>/.tessera/index.db .tables   # inspect what landed
-
-tessera render scip <project>        # → <project>/.tessera/render.dot
-sfdp -Tsvg  <project>/.tessera/render.dot > <project>/.tessera/graph.svg
-dot  -Tjson <project>/.tessera/render.dot > <project>/.tessera/graph.json
-open viewer.html                                          # interactive cytoscape viewer
 ```
 
 `tessera index` invokes `rust-analyzer scip` / `scip-go` / `scip-typescript` / `scip-python` for each detected language and ingests the result into one SQLite database. See [`docs/rfcs/0003-tessera-index-sqlite-mirror.md`](docs/rfcs/0003-tessera-index-sqlite-mirror.md) for the schema and pipeline.
-
-`tessera render scip <project>` projects the SCIP-derived graph into a Graphviz DOT file. Use `sfdp` (not `dot`) as the layout engine — it scales to thousands of nodes where `dot` produces a hairball. Filter with `--paths`, `--exclude-paths`, `--kinds`, `--edge-kinds`, `--seeds`/`--hops`. See [`docs/rfcs/0004-tessera-render.md`](docs/rfcs/0004-tessera-render.md) for the architecture. Reference edges are derived primarily from `occurrences` (most language indexers leave SCIP `relationships` sparse or empty); see [`docs/rfcs/0005-occurrence-derived-edges.md`](docs/rfcs/0005-occurrence-derived-edges.md) for the algorithm.
 
 Global flags available on every subcommand:
 
