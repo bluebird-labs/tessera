@@ -24,6 +24,8 @@ cargo clippy --workspace --all-targets
 
 ## Workspace layout
 
+Flat workspace: every crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*"]`. Planned siblings include a Tauri desktop app and an MCP server crate; name them `tessera-<role>` and place them alongside `tessera-cli`.
+
 - `crates/cli` — `tessera-cli` package, ships the `tessera` binary. Currently the only crate in the workspace.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
 
