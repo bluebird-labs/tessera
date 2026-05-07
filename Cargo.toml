@@ -9,8 +9,6 @@ rust-version = "1.85"
 version = "0.1.0"
 
 [workspace.dependencies]
-tessera-scip = { path = "crates/scip" }
-
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
@@ -19,11 +17,6 @@ clap = { version = "4.6", features = ["derive"] }
 anstyle = "1.0"
 anstream = "0.6"
 
-scip = "0.7"
-protobuf = "3.7"
-rusqlite = { version = "0.39", features = ["bundled"] }
-
-tempfile = "3"
 assert_cmd = "2"
 predicates = "3"
 
@@ -56,7 +49,7 @@ nursery = { level = "deny", priority = -1 }
 cargo = { level = "deny", priority = -1 }
 # Project-wide allowances — see Cargo.toml comments above for rationale.
 # Pedantic allowances kept narrow; everything else is enforced.
-module_name_repetitions = "allow"   # `tessera_scip::Language` style is fine
+module_name_repetitions = "allow"
 must_use_candidate = "allow"        # noisy on small internal APIs
 missing_errors_doc = "allow"        # docs not yet a project requirement
 missing_panics_doc = "allow"

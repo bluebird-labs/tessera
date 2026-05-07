@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 [`ABOUT.md`](ABOUT.md) is the source of truth for what Tessera is. Briefly: a knowledge-graph-centered ecosystem (desktop app, CLI, MCP server, cloud-backed graph) for engineers retaining architectural control as agents take on more work. Code and domain live in one graph; work flows through a cascade of frozen layers (contracts → use cases → placement → implementation), with annotations bound to stable node IDs and upstream edits propagating downstream automatically. Open-core: CLI, MCP server, single-user desktop app, and the graph schema/modeling primitives are OSS; the shared cloud graph + team/enterprise integrations are commercial.
 
-This repo is the open-core *foundation*. Today it ships the `tessera` CLI and the SQLite-backed *structural* graph (per-language SCIP indexer output ingested into a SCIP-isomorphic SQLite mirror — see RFC 0003). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
+This repo is the open-core *foundation*. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented (the `tessera index` subcommand currently errors with "not yet implemented"). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
 
 ## Build & test
 
@@ -20,12 +20,11 @@ cargo fmt --all
 cargo clippy --workspace --all-targets
 ```
 
-`forks/` is gitignored and excluded from the workspace (`exclude = ["forks"]`); never add it to `members`. It holds shallow clones of real-world projects used as analyzer fixtures — see `docs/test-repos.md` for the curated list and `README.md` for per-fork setup.
+`forks/` is gitignored and excluded from the workspace (`exclude = ["forks"]`); never add it to `members`. It holds shallow clones of real-world projects used as analyzer fixtures — see `docs/test-repos.md` for the curated list and `docs/fixtures.md` for per-fork setup.
 
 ## Workspace layout
 
-- `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
-- `crates/scip` — `tessera-scip` library crate. Hosts language detection (`detect`), per-language indexer command mapping (`indexer`), the `orchestrate` pipeline (with `Reporter`/`Sink` traits), and the `mirror` module that owns the SQLite schema + ingestion (`MirrorDb`).
+- `crates/cli` — `tessera-cli` package, ships the `tessera` binary. Currently the only crate in the workspace.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
 
 ## CLI architecture
@@ -38,7 +37,3 @@ The CLI is organized so subcommands plug in by implementing one trait and regist
 - **Stderr** (`crates/cli/src/term.rs`): `Term` is the stderr equivalent — used for `info`/`warn`/`error` lines. Errors bubbled out of `commands::run` are formatted with `{err:#}` (anyhow chain) by `main`.
 
 Tests in `render.rs` show the pattern for verifying both modes plus `anstream::StripStream` for the no-color path.
-
-## RFCs
-
-`docs/rfcs/` holds design RFCs. **RFC 0003** (`0003-tessera-index-sqlite-mirror.md`) is the current spec for `tessera index <path>`: shell out to per-language SCIP indexers (`rust-analyzer scip`, `scip-go`, `scip-typescript`, `scip-python`) sequentially with `cwd = <path>`, decode each `<path>/index.scip` in-process via the [`scip`](https://crates.io/crates/scip) crate, and ingest into a single SQLite database (default `<path>/.tessera/index.db`) whose schema is a SCIP-isomorphic mirror. No `.scip` files remain on disk after `tessera index` returns; per-language transactions, exit 0 if at least one language committed. Ingestion + schema live in `tessera-scip::mirror` (built on `rusqlite` with the `bundled` feature). RFC 0001 (file-mover) and RFC 0002 (`tessera show`) are superseded by 0003 — the SQLite artifact is inspectable via `sqlite3 <path>/.tessera/index.db`.
