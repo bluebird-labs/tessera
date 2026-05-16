@@ -22,6 +22,6 @@ impl Render for Version {
 
 pub(crate) const fn run() -> Version {
     Version {
-        version: env!("CARGO_PKG_VERSION"),
+        version: tessera_core::VERSION,
     }
 }

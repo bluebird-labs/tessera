@@ -13,21 +13,26 @@ This repo is the open-core *foundation*. Today it ships the `tessera` CLI; the i
 Workspace uses Cargo with `resolver = "3"` and edition 2024; toolchain is pinned to 1.85 by `rust-toolchain.toml` (rustup fetches it on first build).
 
 ```sh
-cargo build -p tessera-cli           # produces target/debug/tessera
-cargo test  -p tessera-cli           # whole CLI test suite
-cargo test  -p tessera-cli -- <name> # single test by name substring
-cargo fmt --all
-cargo clippy --workspace --all-targets
+cargo xtask cli -- --help            # run the existing CLI from the repo root
+cargo xtask desktop                  # launch the Tauri desktop app
+cargo xtask desktop-build            # build the Vite UI and desktop crate
+cargo xtask check                    # fmt, clippy, CLI tests, desktop builds
+cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 ```
 
 `forks/` is gitignored and excluded from the workspace (`exclude = ["forks"]`); never add it to `members`. It holds shallow clones of real-world projects used as analyzer fixtures — see `docs/test-repos.md` for the curated list and `docs/fixtures.md` for per-fork setup.
 
 ## Workspace layout
 
-Flat workspace: every crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*"]`. Planned siblings include a Tauri desktop app and an MCP server crate; name them `tessera-<role>` and place them alongside `tessera-cli`.
+Flat workspace: every crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*"]`. Future siblings should be named `tessera-<role>` and placed alongside the existing crates.
 
-- `crates/cli` — `tessera-cli` package, ships the `tessera` binary. Currently the only crate in the workspace.
+- `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
+- `crates/core` — `tessera-core` package, currently shared app identity metadata and the first home for app-neutral Rust logic when it is immediately needed.
+- `crates/desktop` — `tessera-desktop` package, a minimal Tauri shell. Its Vite/React code is view-only: rendering, layout, view state, and Tauri command invocation.
+- `crates/xtask` — `tessera-xtask` package, the root automation entrypoint exposed through the Cargo alias `cargo xtask`.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
+- pnpm is desktop UI tooling only. Prefer `cargo xtask desktop`, `cargo xtask desktop-build`, and `cargo xtask check`; direct pnpm commands under `crates/desktop` are debugging escape hatches.
+- Product/application behavior shared between CLI and desktop belongs in Rust crates under `crates/`, not in TypeScript. The desktop startup uses the extracted parchment logo asset at `crates/desktop/src/assets/tessera-logo-parchment.svg`; do not replace it with the full brand sheet or reintroduce the sheet labels.
 
 ## CLI architecture
 
