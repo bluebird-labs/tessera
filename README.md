@@ -2,13 +2,14 @@
 
 A knowledge-graph-centered ecosystem for engineers staying in architectural control as AI coding agents take on more of the work. Tessera models code and business domain in one substrate, runs work through a cascade of frozen layers (contracts → use cases → placement → implementation), and surfaces the graph through a desktop app, CLI, MCP server, and (commercially) a cloud-backed shared graph. See [`ABOUT.md`](ABOUT.md) for the full positioning.
 
-This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
+This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. [`SCHEMA.md`](SCHEMA.md) is the canonical graph schema specification for this substrate. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
 
 Rust monorepo, very early stage.
 
 ## Repository layout
 
 ```
+SCHEMA.md       # canonical graph schema specification
 crates/
   cli/            # `tessera` binary
 docs/
