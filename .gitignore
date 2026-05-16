@@ -5,3 +5,5 @@
 /forks/
 .tessera/
 .attic/
+.air/
+.DS_Store
