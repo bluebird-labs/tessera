@@ -9,17 +9,24 @@ Guidance for coding agents working in this repository.
 Current state matters:
 
 - This repo is early-stage and currently ships the `tessera` CLI.
+- The repo now includes the first minimal Tauri desktop shell, plus shared Rust
+  foundations and `cargo xtask` root automation.
 - The project-directory indexer is being rebuilt around homemade per-language parsers and is not implemented yet.
 - `tessera index` is intentionally present on the CLI surface but currently returns a "not yet implemented" error.
-- The broader product story in `ABOUT.md` includes desktop, MCP, and cloud-backed collaboration, but those surfaces are not implemented here today.
+- The broader product story in `ABOUT.md` includes MCP and cloud-backed collaboration, but those surfaces are not implemented here today.
 
-Do not expand a task into product, UI, or workflow work unless the repository already contains that implementation.
+Do not expand a task into product, graph, cascade, MCP, cloud, or workflow work unless the repository already contains that implementation.
 
 ## Working rules
 
 - Prefer small, local changes that match the existing code shape.
 - Preserve the current CLI architecture instead of introducing parallel abstractions.
 - Keep workspace dependency management centralized in the root `Cargo.toml` under `[workspace.dependencies]`.
+- Keep product/application logic in Rust crates under `crates/`. The desktop
+  TypeScript layer is for rendering, layout, view state, and Tauri command
+  invocation only.
+- Use the extracted parchment logo asset in the desktop startup screen; do not
+  display the full two-treatment brand sheet or its small labels.
 - Do not add `forks/` to workspace members. It is gitignored and excluded on purpose.
 
 ## Repository layout
@@ -27,6 +34,9 @@ Do not expand a task into product, UI, or workflow work unless the repository al
 ```text
 crates/
   cli/            # tessera-cli package, produces the `tessera` binary
+  core/           # tessera-core package, shared app-neutral Rust logic
+  desktop/        # tessera-desktop package, minimal Tauri desktop shell
+  xtask/          # tessera-xtask package, root automation
 docs/
   fixtures.md     # analyzer fixture setup
   test-repos.md   # candidate analyzer fixture repositories
@@ -40,12 +50,17 @@ Workspace members live directly under `crates/*`. Future crates should follow th
 Toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml) to Rust `1.85`.
 
 ```sh
-cargo build -p tessera-cli
-cargo test -p tessera-cli
+cargo xtask cli -- --help
+cargo xtask desktop
+cargo xtask desktop-build
+cargo xtask check
 cargo test -p tessera-cli -- <name>
-cargo fmt --all
-cargo clippy --workspace --all-targets
 ```
+
+`cargo xtask check` runs Rust formatting checks, clippy, CLI tests, the
+desktop frontend build, and the desktop Rust build. pnpm is the desktop UI
+package manager behind the xtask workflow; use direct pnpm commands only for
+frontend debugging inside `crates/desktop`.
 
 ## CLI architecture
 

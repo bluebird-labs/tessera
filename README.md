@@ -4,13 +4,17 @@ A knowledge-graph-centered ecosystem for engineers staying in architectural cont
 
 This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
 
-Rust monorepo, very early stage.
+Rust monorepo, very early stage. The root development entrypoint is
+`cargo xtask`; the desktop frontend uses pnpm behind that Rust workflow.
 
 ## Repository layout
 
 ```
 crates/
   cli/            # `tessera` binary
+  core/           # shared app-neutral Rust metadata and future substrate logic
+  desktop/        # Tauri desktop app; Vite/React is view-only
+  xtask/          # root automation for CLI and desktop workflows
 docs/
   fixtures.md     # toolchains and setup for analyzer test fixtures
   test-repos.md   # candidate fixture repos per language
@@ -20,11 +24,14 @@ forks/            # gitignored — third-party repos used as analyzer fixtures
 ## Requirements
 
 - Rust toolchain pinned by [`rust-toolchain.toml`](rust-toolchain.toml) (currently `1.85`, with `rustfmt` and `clippy`). `rustup` will fetch it automatically on first build.
+- pnpm for desktop UI tooling. The primary commands below call pnpm through
+  `cargo xtask`.
 
 ## Build
 
 ```sh
 cargo build -p tessera-cli
+cargo xtask desktop-build
 ```
 
 The binary is produced at `target/debug/tessera`.
@@ -55,6 +62,8 @@ cargo install --path crates/cli
 
 ```sh
 tessera --help
+cargo xtask cli -- --help
+cargo xtask desktop
 tessera version                      # pretty mode (default)
 tessera version --format json        # machine-readable
 ```
@@ -74,7 +83,25 @@ Global flags available on every subcommand:
 
 ```sh
 cargo test -p tessera-cli
+cargo xtask check
 ```
+
+`cargo xtask check` runs Rust formatting checks, workspace clippy, CLI tests,
+the desktop frontend build, and the desktop Rust build. Direct pnpm commands
+under `crates/desktop` are intended only as frontend debugging escape hatches;
+prefer `cargo xtask desktop` and `cargo xtask desktop-build` from the repo root.
+
+## Desktop
+
+`crates/desktop` is the first Tauri shell for Tessera. The React/Vite code is
+the view layer only: rendering, layout, local view state, and Tauri command
+invocation. Product and application behavior that needs to be shared between
+the CLI and desktop belongs in Rust crates under `crates/`, starting with
+`crates/core` when immediately useful.
+
+The startup screen displays the extracted parchment Tessera logo asset at
+`crates/desktop/src/assets/tessera-logo-parchment.svg`, derived from the
+supplied brand sheet without the alternate ink treatment or sheet labels.
 
 ## Analyzer test fixtures
 

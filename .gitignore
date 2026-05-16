@@ -1,4 +1,9 @@
 /target
+node_modules/
+.pnpm-store/
+crates/desktop/dist/
+crates/desktop/gen/
+crates/desktop/node_modules/
 .idea/
 .claude/worktrees/
 .claude/**.local.json
