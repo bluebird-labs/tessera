@@ -1,0 +1,16 @@
+[package]
+name = "tessera-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[build-dependencies]
+tauri-build = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tessera-core = { workspace = true }
+
+[lints]
+workspace = true
