@@ -2,7 +2,7 @@
 
 A knowledge-graph-centered ecosystem for engineers staying in architectural control as AI coding agents take on more of the work. Tessera models code and business domain in one substrate, runs work through a cascade of frozen layers (contracts → use cases → placement → implementation), and surfaces the graph through a desktop app, CLI, MCP server, and (commercially) a cloud-backed shared graph. See [`ABOUT.md`](ABOUT.md) for the full positioning.
 
-This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. [`SCHEMA.md`](SCHEMA.md) is the canonical graph schema specification for this substrate. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
+This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. [`crates/graph/SPEC.md`](crates/graph/SPEC.md) is the canonical graph specification for this substrate. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
 
 Rust monorepo, very early stage. The root development entrypoint is
 `cargo xtask`; the desktop frontend uses pnpm behind that Rust workflow.
@@ -10,12 +10,12 @@ Rust monorepo, very early stage. The root development entrypoint is
 ## Repository layout
 
 ```
-SCHEMA.md       # canonical graph schema specification
 crates/
   cli/            # `tessera` binary
   core/           # shared app-neutral Rust metadata and future substrate logic
   desktop/        # Tauri desktop app; Vite/React is view-only
-  xtask/          # root automation for CLI and desktop workflows
+  graph/          # canonical graph types and SPEC.md (normative specification)
+xtask/            # workspace-root automation crate (cargo xtask)
 docs/
   fixtures.md     # toolchains and setup for analyzer test fixtures
   test-repos.md   # candidate fixture repos per language

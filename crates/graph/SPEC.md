@@ -30,7 +30,7 @@ This specification does not define a wire format, storage engine, query language
 
 ## 4. Relationship to Kythe
 
-The Tessera canonical graph is Kythe-inspired and proprietary. Producers MAY use Kythe concepts to guide implementation, but a Tessera graph MUST conform to this specification rather than to Kythe wire formats or schemas.
+The Tessera canonical graph is Kythe-inspired but Tessera-defined and not Kythe wire-compatible. Producers MAY use Kythe concepts to guide implementation, but a Tessera graph MUST conform to this specification rather than to Kythe wire formats or schemas.
 
 Tessera adopts these Kythe-shaped ideas:
 
@@ -119,6 +119,7 @@ The v0.1 standard `tessera/*` fact key registry is closed. Consumers MUST reject
 | --- | --- | --- | --- |
 | `tessera/schema/version` | `Corpus` | string | `0.1.0` for this version |
 | `tessera/corpus/name` | `Corpus` | string | Producer-defined corpus display name |
+| `tessera/conformance/profiles` | `Corpus` | list | Subset of `core`, `ops`, `effects` declared by the producer; `core` MUST be present |
 | `tessera/file/path` | `File` | string | Corpus-relative path |
 | `tessera/file/digest` | `File` | string | Producer-defined content digest string |
 | `tessera/module/kind` | `Module` | enum | `package`, `namespace`, `file_module`, `crate_mod`, `singleton` |
@@ -208,7 +209,7 @@ Producers MUST construct identifiers deterministically without a central registr
 - `Corpus` nodes use `module = ""`, `scope = ""`, and `signature = "_"`.
 - `File` nodes use `language = "_"`, the containing corpus, `module = ""`, `scope = ""`, and `signature = "file:<normalized-corpus-relative-path>"`.
 - `Module` nodes use the normalized module path in `module`, empty `scope`, and `signature = "_"`.
-- Declaration nodes use their containing module, lexical scope path, and a normalized local signature. Overloads MUST include a deterministic disambiguator derived from declared parameter arity and type references when available.
+- Declaration nodes use their containing module, lexical scope path, and a normalized local signature. Overloads MUST include a deterministic disambiguator derived from declared parameter arity and type references when available. When type references are not available — partial parse, dynamic language, untyped parameters, or unresolved generics — producers MUST append a declaration-order index `#<n>` over sibling declarations sharing the same local signature within the enclosing scope, assigned in canonical source order.
 - `Scope` nodes use the enclosing declaration or scope signature plus `#Scope#<ordinal>`.
 - Expression, operation, pattern, and control nodes use `{parent-signature}#<kind>#<ordinal>` with depth-first, left-to-right ordinal assignment over the canonical AST.
 - `TypeRef` nodes use `{parent-signature}#TypeRef#<ordinal>` unless they are shared built-in type references, in which case producers MAY use `_` language and a stable interlingua signature.
@@ -227,6 +228,8 @@ Conforming producers MUST provide these identity stability properties:
 | Adding or removing sibling declarations | Unchanged siblings stable | Descendants of unchanged siblings stable |
 
 Most durable annotations SHOULD pin to declarations. Fine-grained annotations MAY use anchor-relative pinning above this schema.
+
+Neither ordinals nor anchor byte ranges provide a truly stable fine-grained identity across reformats, body-level refactors, or file reorganizations: byte ranges shift under any preceding text insertion, and ordinals shift under any preceding sibling insertion. v0.1 does not attempt to repair this at the substrate level. Durable fine-grained pinning is a higher-layer Tessera concern (e.g., content-hashed slices, structural re-anchoring, or anchor-migration over diffs) and is out of scope for this specification.
 
 ## 8. Anchors
 
@@ -318,8 +321,8 @@ Type aliases, typedefs, and newtypes MUST use `tessera/type/canonical_kind = "al
 
 A type use MUST be represented by a `TypeRef` node.
 
-- `TypeRef -> Type` uses the `target` edge.
-- Generic or template arguments use `type_arg` edges with dense zero-based ordinals.
+- `TypeRef -> Type` uses the `target` edge. A `TypeRef`'s `target` MUST point to a `Type` node, never to another `TypeRef`. Aliases are resolved by following `target` from the aliasing `Type` node, not by chaining `TypeRef` nodes.
+- Generic or template arguments use `type_arg` edges from a `TypeRef` to other `TypeRef` nodes with dense zero-based ordinals. `type_arg` is the only mechanism for propagating type-level parameters at a use site.
 - Lifetime, ownership, variance, mutability, nullability, and linearity facts remain language facts in v0.1.
 - `Vec<i32>` and `Vec<String>` are separate `TypeRef` nodes that target the same `Vec` type declaration with different `type_arg[0]` targets.
 
@@ -372,11 +375,22 @@ Permitted payload keys:
 | `Unsafe` | `capability`, `reason` |
 | `FFI` | `language`, `symbol`, `abi` |
 
-Payload values MUST be strings except `type`, which MAY be a `node_ref`. Other categories MUST NOT use standard payload keys in v0.1.
+Payload values MUST be one of:
+
+- a string literal known statically by the producer,
+- a `node_ref` (permitted only for the `type` key under `Panic`),
+- the reserved sentinel string `"<dynamic>"` when the value is determined at runtime and the producer chooses to record its presence without a static form,
+- the reserved sentinel string `"<unknown>"` when the producer cannot determine the value at all.
+
+The sentinel forms MUST be distinguishable from literal payload strings. Producers MUST escape any source-derived string that would otherwise collide with a sentinel (e.g., a literal path whose value is the four-character string `<unknown>`) by prefixing it with a single `\` character; consumers MUST strip that escape on read. Other categories MUST NOT use standard payload keys in v0.1.
 
 ### 10.3 Aggregate Effects
 
 Aggregate function effects are analyzer-derived unless a source language exposes an effect signature or the producer can compute the body closure exactly. Producers MAY emit `tessera/effect/aggregate`; analyzers SHOULD derive it when absent. Consumers MUST treat aggregate facts as summaries and operation-level effect facts as the primary source of emitted effect evidence.
+
+### 10.4 Effect Emission Is Profile-Gated
+
+Effect facts are part of the optional `effects` conformance profile (Section 15.1). A producer that does not declare the `effects` profile MUST NOT emit `tessera/effect/*` facts, and consumers MUST NOT infer the absence of effects from such a producer's output. A producer that declares the `effects` profile SHOULD emit effect categories for every emitted operation, expression, or declaration whose effects are explicit in source syntax or known from a producer-supplied effect-signature corpus; the precise stdlib and third-party coverage is producer-declared and not normatively fixed by this version.
 
 ## 11. Node Kind Registry
 
@@ -425,8 +439,8 @@ The v0.1 node kind registry is closed for standard kinds:
 | `SetLit` | Expression | none required |
 | `Range` | Expression | optional `tessera/range/inclusive` |
 | `Pattern` | Pattern | `tessera/pattern/kind` |
-| `Spawn` | Concurrency | effect facts including `Concurrent` |
-| `Await` | Concurrency | effect facts including `Async` |
+| `Spawn` | Concurrency | optional effect facts; when the `effects` profile is declared, the category list MUST include `Concurrent` |
+| `Await` | Concurrency | optional effect facts; when the `effects` profile is declared, the category list MUST include `Async` |
 | `ChannelOp` | Concurrency | `tessera/channel/op` |
 
 Comments and docstrings MUST be represented as facts on the documented symbol, such as `tessera/doc/text` or language-specific structured doc facts. v0.1 has no `Doc` node kind.
@@ -451,7 +465,7 @@ The v0.1 edge kind registry is closed for standard edges. Cardinality is stated 
 | `reads` | `Anchor`, operation, expression | `Variable`, `Field`, `Constant`, `Access` | many | forbidden | none |
 | `writes` | `Anchor`, operation, expression | `Variable`, `Field`, `Access` | many | forbidden | none |
 | `calls` | `Anchor`, `Call` | `Function`, `Lambda`, `Macro` | many | forbidden | none |
-| `instantiates` | `Anchor`, `Call`, `TypeRef` | `Type`, `Function`, `Macro` | many | forbidden | `type_args` |
+| `instantiates` | `Anchor`, `Call`, `TypeRef` | `Type`, `Function`, `Macro` | many | forbidden | none |
 | `throws` | `Anchor`, `Throw`, `Call`, `Function` | `Type`, `TypeRef` | many | forbidden | none |
 | `imports` | `Anchor`, `Module` | `Module`, `Dependency`, `Corpus` | many | forbidden | none |
 | `extends` | `Anchor`, `Type` | `Type`, `TypeRef` | many | forbidden | none |
@@ -461,7 +475,7 @@ The v0.1 edge kind registry is closed for standard edges. Cardinality is stated 
 | `param_type` | `Function`, `Lambda` | `TypeRef` | many | required | none |
 | `field` | `Type`, `Access` | `Field` | many | required for type fields | none |
 | `variant` | `Type` | `Variant` | many | required | none |
-| `target` | `TypeRef`, `Assign`, `Access` | `Type`, `TypeRef`, expression, declaration | at most 1 | forbidden | none |
+| `target` | `TypeRef`, `Type`, `Assign`, `Access` | `Type`, expression, declaration | at most 1 | forbidden | none |
 | `type_arg` | `TypeRef` | `TypeRef` | many | required | none |
 | `cond` | `If`, `Loop` | expression | at most 1 | forbidden | none |
 | `then` | `If` | `Block`, expression | at most 1 | forbidden | none |
@@ -489,7 +503,7 @@ The v0.1 edge kind registry is closed for standard edges. Cardinality is stated 
 
 For the source and target sets above, `expression` means the expression group in the Node Kind Registry, `operation` means the operation group, and `declaration` means `Function`, `Type`, `Variable`, `Field`, `Variant`, `Constant`, or `Macro`.
 
-The only permitted standard edge facts in v0.1 are those named in the `Edge facts` column. `version_spec`, `resolved_version`, and `type_args` are strings. `optional` and `dev_only` are booleans.
+The only permitted standard edge facts in v0.1 are those named in the `Edge facts` column. `version_spec` and `resolved_version` are strings. `optional` and `dev_only` are booleans.
 
 ## 13. Containment
 
@@ -503,11 +517,11 @@ Definitions:
 
 - `Corpus`: an indexed unit such as a repository revision, package version, standard library, or dependency corpus. Each `Corpus` node MUST carry `tessera/schema/version = "0.1.0"`.
 - `File`: a side node for a corpus-relative source, generated, or metadata file. A `File` MUST carry `tessera/file/path`.
-- `Module`: a uniform namespace unit. `tessera/module/kind` MUST be one of `package`, `namespace`, `file_module`, `crate_mod`, or `singleton`.
+- `Module`: a uniform namespace unit. `tessera/module/kind` MUST be one of `package`, `namespace`, `file_module`, `crate_mod`, or `singleton`. Nested modules MUST be graph-navigable: a nested module's `child_of` edge MUST point at its enclosing module, not directly at the `Corpus`. The dotted `module` field of a `NodeId` mirrors this nesting but consumers MUST NOT rely on string parsing to recover the parent module — the `child_of` chain is authoritative.
 - `Scope`: a lexical scope inside a module, declaration, block, or expression. `tessera/scope/kind` SHOULD be one of `module`, `type`, `function`, `block`, `match_arm`, or `closure`.
 - `Symbol`: any named declaration node: `Function`, `Type`, `Variable`, `Field`, `Variant`, `Constant`, or `Macro`.
 - `Anchor`: a source range node with role edges to semantic nodes.
-- `TypeRef`: a type-use node that points to a canonical `Type` or another `TypeRef`.
+- `TypeRef`: a type-use node that points to a canonical `Type` via its `target` edge. Generic arguments are carried by `type_arg` edges to other `TypeRef` nodes; `target` MUST NOT chain `TypeRef` to `TypeRef`.
 
 Every non-root node that is part of semantic containment MUST have exactly one `child_of` edge. `child_of` edges are directed from child to parent. `File` nodes SHOULD be contained by their `Corpus`. `Anchor` and `TypeRef` nodes SHOULD be contained by the narrowest semantic parent that owns their source occurrence.
 
@@ -538,19 +552,33 @@ Unresolved references MUST be represented without inventing unstable target iden
 
 ## 15. Producer Conformance
 
+### 15.1 Conformance Profiles
+
+v0.1 defines three conformance profiles. Producers MUST declare the profiles they implement via the `tessera/conformance/profiles` list fact on the `Corpus` node. Consumers MUST treat each profile as independent: facts and node kinds reserved to a profile that a producer has not declared MUST NOT be expected, and their absence MUST NOT be interpreted as a negative fact.
+
+| Profile | Status | Covers |
+| --- | --- | --- |
+| `core` | REQUIRED | `Corpus`, `File`, `Module`, `Dependency`, `Scope`, `Anchor`, `TypeRef`, declaration node kinds (`Function`, `Type`, `Variable`, `Field`, `Variant`, `Constant`, `Macro`), the type interlingua (Section 9), anchor role edges (Section 8), containment and cross-corpus edges, and `imports`, `extends`, `conforms_to`, `has_type`, `returns`, `param_type`, `field`, `variant`, `target`, `type_arg`, `may_throw` |
+| `ops` | OPTIONAL | Operation, expression, pattern, and concurrency node kinds — `Block`, `If`, `Match`, `Loop`, `Break`, `Continue`, `Return`, `Yield`, `Throw`, `TryCatch`, `Defer`, `Call`, `BinOp`, `UnOp`, `Assign`, `Index`, `Access`, `Literal`, `Lambda`, `Cast`, `Tuple`, `RecordLit`, `ListLit`, `MapLit`, `SetLit`, `Range`, `Pattern`, `Spawn`, `Await`, `ChannelOp` — together with the structural edges that relate them (`cond`, `then`, `else`, `body`, `arm`, `pattern`, `guard`, `subject`, `callee`, `arg`, `receiver`, `lhs`, `rhs`, `operand`, `value`, `iter`, `start`, `end`, `element`, `handler`, `finally`) and the operation-side use of `reads`, `writes`, `calls`, `references`, `instantiates`, `throws` |
+| `effects` | OPTIONAL | All `tessera/effect/*` facts, the `EffectCategory` registry (Section 10.1), and the `effect_carrier` edge |
+
+`core` is the minimum a producer must implement to claim Tessera conformance. A producer declaring `ops` MUST also declare `core`. A producer declaring `effects` MUST also declare `core`; declaring `effects` without `ops` is permitted only when effects are attached to declarations rather than operations.
+
+### 15.2 Producer Requirements
+
 A v0.1 producer MUST emit:
 
-1. One `Corpus` node per indexed corpus with `tessera/schema/version = "0.1.0"`.
-2. `File`, `Module`, `Scope`, declaration, `Anchor`, and `TypeRef` nodes sufficient to represent all indexed source files.
+1. One `Corpus` node per indexed corpus with `tessera/schema/version = "0.1.0"` and a `tessera/conformance/profiles` list including at least `"core"`.
+2. `File`, `Module`, `Scope`, declaration, `Anchor`, and `TypeRef` nodes sufficient to represent all indexed source files at the declared profile level.
 3. Deterministic `NodeId` values following Section 7.
 4. `child_of` containment for every semantic non-root node.
-5. Anchor coverage for declarations, bindings, references, imports, calls, reads, writes, instantiations, throws, and inheritance or conformance references.
-6. Canonical type mappings for every represented source type.
-7. Operation nodes for represented control and expression constructs.
-8. Effect category facts on operation nodes where effects are explicit in source syntax or known from language semantics.
-9. Standard edge kinds and fact keys only as permitted by the registries.
+5. Anchor coverage for declarations, bindings, imports, and inheritance or conformance references. A producer that declares `ops` MUST additionally emit anchor coverage for the calls, reads, writes, instantiations, and throws it represents in the operation tree; a `core`-only producer MUST emit anchors only for the role edges its emitted graph carries.
+6. Canonical type mappings for every represented source type, per Section 9.
+7. Operation, expression, pattern, and concurrency nodes for represented control and expression constructs when the `ops` profile is declared, and only then.
+8. Effect category facts on operation, expression, or declaration nodes when the `effects` profile is declared, and only then, where the effects are explicit in source syntax or known from a producer-supplied effect-signature corpus.
+9. Standard edge kinds and fact keys only as permitted by the registries, and only those permitted by the declared profile set.
 
-A producer is not required to emit aggregate function effects, post-expansion macro/template graphs, higher-level architecture views, explicit dataflow extension edges, or dependency resolution beyond locally available build metadata.
+A producer is not required to emit aggregate function effects, post-expansion macro/template graphs, higher-level architecture views, explicit dataflow extension edges, or dependency resolution beyond locally available build metadata. A `core`-only producer is not required to emit any operation, expression, pattern, or concurrency nodes, and consumers MUST accept such a graph as conforming.
 
 ## 16. Consumer Conformance
 
@@ -558,6 +586,7 @@ A v0.1 consumer MUST:
 
 - Parse and preserve all standard v0.1 node kinds, edge kinds, fact keys, and effect categories.
 - Reject standard graph constructs that violate required kind, cardinality, ordinal, fact namespace, or fact value rules.
+- Validate that every standard node kind and standard fact key present in the graph is permitted by the producer's declared `tessera/conformance/profiles`, and reject graphs that contain constructs outside the declared profile set.
 - Preserve unknown `lang/<language>/...` and `x-<vendor>/...` facts and extension edges when round-tripping a graph, unless explicitly operating in a validating discard mode.
 - Treat unknown standard-looking `tessera/*` facts or unregistered standard edge/node kinds as validation errors for v0.1.
 - Report enough validation context to identify the offending node, edge, or fact.
@@ -592,6 +621,8 @@ Non-normative extension areas for future versions include:
 - Cross-language ownership, lifetime, and linearity interlingua.
 - Rich structured documentation nodes if symbol facts prove insufficient.
 
+The intended ordering for these work items is: (1) a concrete wire format, since every other extension presupposes one; (2) incremental indexing and stale-reference repair, which together with the wire format are the prerequisites for the higher Tessera layers that depend on this substrate; (3) standard explicit dataflow edges and post-expansion views, once producers at the `ops` profile are established; (4) cross-language ownership and lifetime interlingua and structured documentation, which are refinements rather than blockers. This ordering is non-normative and may be revised before any of these items are promoted to normative status.
+
 ## 19. Example
 
 For this tiny function:
@@ -606,12 +637,12 @@ A producer could emit these representative nodes:
 
 | Node | Kind | Selected facts |
 | --- | --- | --- |
-| `nodeid:v0:github.com/acme/app@abc123|_|||_` | `Corpus` | `tessera/schema/version = "0.1.0"` |
+| `nodeid:v0:github.com/acme/app@abc123|_|||_` | `Corpus` | `tessera/schema/version = "0.1.0"`, `tessera/conformance/profiles = ["core", "ops", "effects"]` |
 | `nodeid:v0:github.com/acme/app@abc123|rust|app||_` | `Module` | `tessera/module/kind = "crate_mod"` |
 | `nodeid:v0:github.com/acme/app@abc123|_|||file:src/lib.rs` | `File` | `tessera/file/path = "src/lib.rs"` |
 | `nodeid:v0:github.com/acme/app@abc123|rust|app||read_name` | `Function` | `tessera/effect/aggregate = ["FS"]` |
 | `nodeid:v0:github.com/acme/app@abc123|rust|app|read_name|path` | `Variable` | `tessera/symbol/role = "parameter"` |
-| `nodeid:v0:github.com/acme/app@abc123|rust|app|read_name|read_name#Call#0` | `Call` | `tessera/effect/category = ["FS"]`, `tessera/effect/payload = {op: "read", path: "dynamic"}` |
+| `nodeid:v0:github.com/acme/app@abc123|rust|app|read_name|read_name#Call#0` | `Call` | `tessera/effect/category = ["FS"]`, `tessera/effect/payload = {op: "read", path: "<dynamic>"}` |
 | `nodeid:v0:github.com/acme/app@abc123|rust|app|read_name|read_name#Anchor#3#12#0` | `Anchor` | `tessera/anchor/file = "src/lib.rs"`, `byte_start = 3`, `byte_end = 12` |
 | `nodeid:v0:github.com/acme/app@abc123|rust|app|read_name|read_name#Anchor#38#52#0` | `Anchor` | `tessera/anchor/file = "src/lib.rs"`, `byte_start = 38`, `byte_end = 52` |
 

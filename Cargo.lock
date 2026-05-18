@@ -3425,6 +3425,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "tessera-graph"
+version = "0.1.0"
+
+[[package]]
 name = "tessera-xtask"
 version = "0.1.0"
 

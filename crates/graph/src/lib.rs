@@ -1,0 +1,1 @@
+#![doc = "Tessera canonical graph: types, identity, and traits.\n\nThis crate will define the Rust representation of the canonical graph\ndescribed in `SPEC.md` at the crate root. No structs or traits are\nimplemented yet — see `SPEC.md` for the normative model, `README.md` for\norientation."]

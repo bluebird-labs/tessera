@@ -24,12 +24,13 @@ cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 
 ## Workspace layout
 
-Flat workspace: every crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*"]`. Future siblings should be named `tessera-<role>` and placed alongside the existing crates.
+Flat workspace: every product crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*", "xtask"]`. The repo-level automation crate `xtask` sits at the workspace root, following the canonical `cargo-xtask` pattern — it is not a product crate. Future product siblings should be named `tessera-<role>` and placed alongside the existing crates under `crates/`.
 
 - `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
 - `crates/core` — `tessera-core` package, currently shared app identity metadata and the first home for app-neutral Rust logic when it is immediately needed.
 - `crates/desktop` — `tessera-desktop` package, a minimal Tauri shell. Its Vite/React code is view-only: rendering, layout, view state, and Tauri command invocation.
-- `crates/xtask` — `tessera-xtask` package, the root automation entrypoint exposed through the Cargo alias `cargo xtask`.
+- `crates/graph` — `tessera-graph` package, future home for the canonical graph's node/edge/fact types and producer/consumer traits. The normative specification lives at `crates/graph/SPEC.md`; no Rust types are implemented yet.
+- `xtask` — `tessera-xtask` package at the workspace root, the automation entrypoint exposed through the Cargo alias `cargo xtask`.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
 - pnpm is desktop UI tooling only. Prefer `cargo xtask desktop`, `cargo xtask desktop-build`, and `cargo xtask check`; direct pnpm commands under `crates/desktop` are debugging escape hatches.
 - Product/application behavior shared between CLI and desktop belongs in Rust crates under `crates/`, not in TypeScript. The desktop startup uses the extracted parchment logo asset at `crates/desktop/src/assets/tessera-logo-parchment.svg`; do not replace it with the full brand sheet or reintroduce the sheet labels.
