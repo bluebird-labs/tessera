@@ -22,6 +22,10 @@ cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 
 `forks/` is gitignored and excluded from the workspace (`exclude = ["forks"]`); never add it to `members`. It holds shallow clones of real-world projects used as analyzer fixtures — see `docs/test-repos.md` for the curated list and `docs/fixtures.md` for per-fork setup.
 
+## Lint baseline
+
+`unsafe_code` is `forbid`-level workspace-wide, and clippy `all`, `pedantic`, `nursery`, and `cargo` groups are all denied in the root `Cargo.toml` (`[workspace.lints]`). New code is expected to clear that bar — `cargo xtask check` runs `cargo clippy --workspace --all-targets` and will reject pedantic/nursery violations the same way it rejects errors. The narrow set of project-wide allowances (e.g. `module_name_repetitions`, `must_use_candidate`, `missing_errors_doc`) is documented inline next to the lint table; don't widen them casually.
+
 ## Workspace layout
 
 Flat workspace: every product crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*", "xtask"]`. The repo-level automation crate `xtask` sits at the workspace root, following the canonical `cargo-xtask` pattern — it is not a product crate. Future product siblings should be named `tessera-<role>` and placed alongside the existing crates under `crates/`.
