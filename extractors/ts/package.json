@@ -1,0 +1,19 @@
+{
+  "name": "@tessera/extractor-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "extract": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "ts-morph": "^25.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "@types/node": "^22.0.0",
+    "vitest": "^3.2.1"
+  }
+}

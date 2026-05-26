@@ -1,4 +1,5 @@
 packages:
   - crates/desktop
+  - extractors/ts
 allowBuilds:
   esbuild: true

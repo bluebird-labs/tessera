@@ -15,6 +15,7 @@ anyhow = { workspace = true }
 anstyle = { workspace = true }
 anstream = { workspace = true }
 tessera-core = { workspace = true }
+tessera-graph = { path = "../graph" }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
