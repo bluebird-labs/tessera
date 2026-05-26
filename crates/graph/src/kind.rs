@@ -171,3 +171,48 @@ impl TesseraKind {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn group_classification() {
+        assert_eq!(TesseraKind::Corpus.group(), TesseraKindGroup::Metadata);
+        assert_eq!(TesseraKind::File.group(), TesseraKindGroup::FileModule);
+        assert_eq!(TesseraKind::Scope.group(), TesseraKindGroup::Scope);
+        assert_eq!(TesseraKind::TypeRef.group(), TesseraKindGroup::TypeUse);
+        assert_eq!(TesseraKind::Function.group(), TesseraKindGroup::Declaration);
+        assert_eq!(TesseraKind::Block.group(), TesseraKindGroup::Operation);
+        assert_eq!(TesseraKind::Call.group(), TesseraKindGroup::Expression);
+        assert_eq!(TesseraKind::Pattern.group(), TesseraKindGroup::Pattern);
+        assert_eq!(TesseraKind::Spawn.group(), TesseraKindGroup::Concurrency);
+    }
+
+    #[test]
+    fn is_declaration_only_matches_declaration_kinds() {
+        assert!(TesseraKind::Function.is_declaration());
+        assert!(TesseraKind::Variable.is_declaration());
+        assert!(TesseraKind::Macro.is_declaration());
+        assert!(!TesseraKind::Call.is_declaration());
+        assert!(!TesseraKind::Block.is_declaration());
+    }
+
+    #[test]
+    fn is_expression_only_matches_expression_kinds() {
+        assert!(TesseraKind::Call.is_expression());
+        assert!(TesseraKind::Literal.is_expression());
+        assert!(TesseraKind::Range.is_expression());
+        assert!(!TesseraKind::Function.is_expression());
+        assert!(!TesseraKind::Block.is_expression());
+    }
+
+    #[test]
+    fn is_operation_only_matches_operation_kinds() {
+        assert!(TesseraKind::Block.is_operation());
+        assert!(TesseraKind::If.is_operation());
+        assert!(TesseraKind::Defer.is_operation());
+        assert!(!TesseraKind::Call.is_operation());
+        assert!(!TesseraKind::Function.is_operation());
+    }
+}

@@ -360,3 +360,67 @@ impl FromStr for SymbolRole {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spec_enum_round_trip() {
+        assert_eq!(ModuleKind::Package.as_str(), "package");
+        assert_eq!(ModuleKind::Package.to_string(), "package");
+        assert_eq!(
+            "package".parse::<ModuleKind>().unwrap(),
+            ModuleKind::Package
+        );
+
+        assert_eq!(ScopeKind::Block.as_str(), "block");
+        assert_eq!("block".parse::<ScopeKind>().unwrap(), ScopeKind::Block);
+
+        assert_eq!(EffectCategory::IO.as_str(), "IO");
+        assert_eq!("IO".parse::<EffectCategory>().unwrap(), EffectCategory::IO);
+    }
+
+    #[test]
+    fn spec_enum_rejects_unknown() {
+        assert!("nope".parse::<ModuleKind>().is_err());
+        assert!("nope".parse::<LoopKind>().is_err());
+    }
+
+    #[test]
+    fn registry_value_display_and_as_str() {
+        let rv = RegistryValue::ModuleKind(ModuleKind::Package);
+        assert_eq!(rv.as_str(), "package");
+        assert_eq!(rv.to_string(), "package");
+
+        let ext = RegistryValue::Extension("custom".into());
+        assert_eq!(ext.as_str(), "custom");
+        assert_eq!(ext.to_string(), "custom");
+    }
+
+    #[test]
+    fn registry_value_from_impls() {
+        let rv: RegistryValue = ModuleKind::Package.into();
+        assert_eq!(rv, RegistryValue::ModuleKind(ModuleKind::Package));
+
+        let rv: RegistryValue = BinOpKind::Add.into();
+        assert_eq!(rv, RegistryValue::BinOpKind(BinOpKind::Add));
+
+        let rv: RegistryValue = SymbolRole::Parameter.into();
+        assert_eq!(rv, RegistryValue::SymbolRole(SymbolRole::Parameter));
+    }
+
+    #[test]
+    fn symbol_role_round_trip() {
+        assert_eq!(SymbolRole::Parameter.as_str(), "parameter");
+        assert_eq!(SymbolRole::Parameter.to_string(), "parameter");
+        assert_eq!(
+            "parameter".parse::<SymbolRole>().unwrap(),
+            SymbolRole::Parameter
+        );
+        assert_eq!(
+            "x-custom:role".parse::<SymbolRole>().unwrap(),
+            SymbolRole::Extension("x-custom:role".into())
+        );
+    }
+}

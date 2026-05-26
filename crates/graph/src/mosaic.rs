@@ -149,3 +149,110 @@ impl Bond {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::build::MosaicBuilder;
+    use crate::enums::{ConformanceProfile, ModuleKind};
+    use crate::id::{LanguageTag, TesseraId};
+
+    fn sample_mosaic() -> Mosaic {
+        let corpus_id = TesseraId::corpus("corp");
+        let file_id = TesseraId::file("corp", "src/main.rs");
+        let mod_id = TesseraId::module("corp", LanguageTag::Rust, "app");
+        let fn_id = TesseraId::new("corp", LanguageTag::Rust, "app", "", "main");
+
+        let mut builder = MosaicBuilder::new();
+        builder
+            .add(Tessera::corpus(
+                corpus_id.clone(),
+                "test",
+                &[ConformanceProfile::Core],
+            ))
+            .unwrap();
+        builder
+            .add(Tessera::file(file_id.clone(), "src/main.rs"))
+            .unwrap();
+        builder
+            .add(Tessera::module(mod_id.clone(), ModuleKind::CrateMod))
+            .unwrap();
+        builder
+            .add(Tessera::new(fn_id.clone(), TesseraKind::Function))
+            .unwrap();
+
+        builder.bond(Bond::new(BondKind::ChildOf, mod_id.clone(), corpus_id));
+        builder.bond(Bond::new(BondKind::ChildOf, fn_id, mod_id));
+        builder.bond(
+            Bond::new(BondKind::DefinedIn, file_id.clone(), file_id)
+                .with_ordinal(0)
+                .with_fact("note", FactValue::String("self-ref".into())),
+        );
+
+        builder.build().unwrap()
+    }
+
+    #[test]
+    fn tile_lookup() {
+        let mosaic = sample_mosaic();
+        let corpus_id = TesseraId::corpus("corp");
+        assert!(mosaic.tile(&corpus_id).is_some());
+
+        let missing = TesseraId::corpus("nonexistent");
+        assert!(mosaic.tile(&missing).is_none());
+    }
+
+    #[test]
+    fn tiles_iterator() {
+        let mosaic = sample_mosaic();
+        assert_eq!(mosaic.tiles().count(), 4);
+    }
+
+    #[test]
+    fn bonds_from_and_to() {
+        let mosaic = sample_mosaic();
+        let corpus_id = TesseraId::corpus("corp");
+        let mod_id = TesseraId::module("corp", LanguageTag::Rust, "app");
+
+        assert_eq!(mosaic.bonds_from(&mod_id).count(), 1);
+        assert_eq!(mosaic.bonds_to(&corpus_id).count(), 1);
+    }
+
+    #[test]
+    fn corpus_tiles_filter() {
+        let mosaic = sample_mosaic();
+        let corpus_tiles: Vec<_> = mosaic.corpus_tiles().collect();
+        assert_eq!(corpus_tiles.len(), 1);
+        assert_eq!(corpus_tiles[0].kind, TesseraKind::Corpus);
+    }
+
+    #[test]
+    fn anchor_tessera_factory() {
+        let id = TesseraId::new("corp", LanguageTag::Rust, "app", "", "anchor0");
+        let anchor = Tessera::anchor(id, "src/lib.rs", 10, 42);
+        assert_eq!(anchor.kind, TesseraKind::Anchor);
+        assert_eq!(
+            anchor.facts.get(fact_keys::ANCHOR_FILE),
+            Some(&FactValue::String("src/lib.rs".into()))
+        );
+        assert_eq!(
+            anchor.facts.get(fact_keys::ANCHOR_BYTE_START),
+            Some(&FactValue::Integer(10))
+        );
+        assert_eq!(
+            anchor.facts.get(fact_keys::ANCHOR_BYTE_END),
+            Some(&FactValue::Integer(42))
+        );
+    }
+
+    #[test]
+    fn bond_ordinal_and_facts() {
+        let a = TesseraId::corpus("corp");
+        let b = TesseraId::file("corp", "f.rs");
+        let bond = Bond::new(BondKind::DefinedIn, a, b)
+            .with_ordinal(3)
+            .with_fact("key", FactValue::Boolean(true));
+        assert_eq!(bond.ordinal, Some(3));
+        assert_eq!(bond.facts.get("key"), Some(&FactValue::Boolean(true)));
+    }
+}

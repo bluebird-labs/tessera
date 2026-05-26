@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -96,7 +97,7 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: crates/desktop/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - name: Install system dependencies
         run: |
           sudo apt-get update
