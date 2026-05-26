@@ -20,8 +20,7 @@ impl StoreConfig {
             .unwrap_or_else(|_| DEFAULT_PORT.to_string())
             .parse()
             .map_err(|_| StoreError::Config("TERMINUSDB_PORT must be a valid u16".into()))?;
-        let user =
-            std::env::var("TERMINUSDB_USER").unwrap_or_else(|_| DEFAULT_USER.to_owned());
+        let user = std::env::var("TERMINUSDB_USER").unwrap_or_else(|_| DEFAULT_USER.to_owned());
         let password = std::env::var("TERMINUSDB_ADMIN_PASS")
             .map_err(|_| StoreError::Config("TERMINUSDB_ADMIN_PASS must be set".into()))?;
 

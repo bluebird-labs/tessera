@@ -1,6 +1,6 @@
 use reqwest::Client;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::config::StoreConfig;
@@ -74,10 +74,7 @@ impl TerminusClient {
         self.get("db").await
     }
 
-    pub async fn get_documents<T: DeserializeOwned>(
-        &self,
-        path: &str,
-    ) -> Result<T, StoreError> {
+    pub async fn get_documents<T: DeserializeOwned>(&self, path: &str) -> Result<T, StoreError> {
         self.get(&format!("document/{path}")).await
     }
 
@@ -97,17 +94,11 @@ impl TerminusClient {
         self.put(&format!("document/{path}"), docs).await
     }
 
-    pub async fn delete_documents(
-        &self,
-        path: &str,
-    ) -> Result<serde_json::Value, StoreError> {
+    pub async fn delete_documents(&self, path: &str) -> Result<serde_json::Value, StoreError> {
         self.delete(&format!("document/{path}")).await
     }
 
-    pub async fn get_schema(
-        &self,
-        path: &str,
-    ) -> Result<serde_json::Value, StoreError> {
+    pub async fn get_schema(&self, path: &str) -> Result<serde_json::Value, StoreError> {
         self.get(&format!("schema/{path}")).await
     }
 

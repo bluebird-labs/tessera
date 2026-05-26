@@ -13,6 +13,7 @@ fn test_client() -> TerminusClient {
 }
 
 #[tokio::test]
+#[ignore = "requires a running TerminusDB instance"]
 async fn server_info() {
     let client = test_client();
     let info = client.info().await.unwrap();
@@ -20,6 +21,7 @@ async fn server_info() {
 }
 
 #[tokio::test]
+#[ignore = "requires a running TerminusDB instance"]
 async fn create_and_delete_database() {
     let client = test_client();
     let db_name = "tessera_integration_test";
