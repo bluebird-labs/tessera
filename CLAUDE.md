@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 [`ABOUT.md`](ABOUT.md) is the source of truth for what Tessera is. Briefly: a knowledge-graph-centered ecosystem (desktop app, CLI, MCP server, cloud-backed graph) for engineers retaining architectural control as agents take on more work. Code and domain live in one graph; work flows through a cascade of frozen layers (contracts → use cases → placement → implementation), with annotations bound to stable node IDs and upstream edits propagating downstream automatically. Open-core: CLI, MCP server, single-user desktop app, and the graph schema/modeling primitives are OSS; the shared cloud graph + team/enterprise integrations are commercial.
 
-This repo is the open-core *foundation*. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented (the `tessera index` subcommand currently errors with "not yet implemented"). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
+This repo is the open-core *foundation*. It ships the `tessera` CLI, a per-language indexer (`tessera index`), the canonical graph types (`tessera-graph`), and a TerminusDB persistence layer (`tessera-store`). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
 
 ## Build & test
 
@@ -31,13 +31,30 @@ cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 Flat workspace: every product crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*", "xtask"]`. The repo-level automation crate `xtask` sits at the workspace root, following the canonical `cargo-xtask` pattern — it is not a product crate. Future product siblings should be named `tessera-<role>` and placed alongside the existing crates under `crates/`.
 
 - `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
-- `crates/core` — `tessera-core` package, currently shared app identity metadata and the first home for app-neutral Rust logic when it is immediately needed.
+- `crates/core` — `tessera-core` package, shared app identity metadata and the first home for app-neutral Rust logic.
 - `crates/desktop` — `tessera-desktop` package, a minimal Tauri shell. Its Vite/React code is view-only: rendering, layout, view state, and Tauri command invocation.
-- `crates/graph` — `tessera-graph` package, future home for the canonical graph's node/edge/fact types and producer/consumer traits. The normative specification lives at `crates/graph/SPEC.md`; no Rust types are implemented yet.
+- `crates/graph` — `tessera-graph` package, the canonical graph types (`Mosaic`, `Tessera`, `Bond`, `TesseraKind`, `BondKind`, `FactValue`, `TesseraId`) and `Producer`/`Consumer` conformance traits. The normative specification is `crates/graph/SPEC.md`.
+- `crates/indexer` — `tessera-indexer` package. Discovers and spawns language extractors (currently TypeScript via `tsx`), reads their NDJSON output, and assembles a validated `Mosaic`.
+- `crates/store` — `tessera-store` package. Async `TerminusClient` (reqwest/basic-auth) for database and document CRUD against TerminusDB. Config from env vars (`TERMINUSDB_HOST`, `TERMINUSDB_PORT`, `TERMINUSDB_USER`, `TERMINUSDB_ADMIN_PASS`).
+- `extractors/ts` — TypeScript extractor (ts-morph), invoked as a child process by the indexer. Has its own `package.json`; pnpm-managed.
 - `xtask` — `tessera-xtask` package at the workspace root, the automation entrypoint exposed through the Cargo alias `cargo xtask`.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
 - pnpm is desktop UI tooling only. Prefer `cargo xtask desktop`, `cargo xtask desktop-build`, and `cargo xtask check`; direct pnpm commands under `crates/desktop` are debugging escape hatches.
 - Product/application behavior shared between CLI and desktop belongs in Rust crates under `crates/`, not in TypeScript. The desktop startup uses the extracted parchment logo asset at `crates/desktop/src/assets/tessera-logo-parchment.svg`; do not replace it with the full brand sheet or reintroduce the sheet labels.
+
+## Graph vocabulary
+
+The spec and code use specific terms — don't substitute generic graph jargon:
+
+- **Tessera** — a single graph node (a tile in the mosaic). Typed by `TesseraKind` (53 variants: corpus, file, module, function, type, expression, pattern, concurrency primitives, etc.).
+- **Bond** — a typed directed edge. `BondKind` has 40+ variants (containment, anchoring, control flow, type conformance, etc.).
+- **Mosaic** — the complete graph for a corpus. Built via `MosaicBuilder`.
+- **TesseraId** — five-field structural identity (VName-style, per SPEC §6.2), not an opaque UUID.
+- **FactValue** — closed union for metadata attached to tesserae (String, Integer, Boolean, Bytes, Enum, NodeRef, List, Map). Fact keys are namespaced: `tessera/*`, `lang/<language>/*`, `x-<vendor>/*`.
+
+## CI
+
+`.github/workflows/ci.yaml` runs five jobs: `fmt`, `clippy`, `test`, `coverage`, `desktop`. Coverage thresholds are enforced: 35% for `tessera-cli`, 77% for `tessera-graph`. The `clippy` and `test` jobs exclude `tessera-desktop` (it requires system GTK/webkit deps).
 
 ## CLI architecture
 

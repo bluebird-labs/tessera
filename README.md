@@ -2,7 +2,7 @@
 
 A knowledge-graph-centered ecosystem for engineers staying in architectural control as AI coding agents take on more of the work. Tessera models code and business domain in one substrate, runs work through a cascade of frozen layers (contracts → use cases → placement → implementation), and surfaces the graph through a desktop app, CLI, MCP server, and (commercially) a cloud-backed shared graph. See [`ABOUT.md`](ABOUT.md) for the full positioning.
 
-This repo is the open-core foundation. Today it ships the `tessera` CLI; the indexer that turns a project directory into the structural graph is being rebuilt around homemade per-language parsers and is not yet implemented. [`crates/graph/SPEC.md`](crates/graph/SPEC.md) is the canonical graph specification for this substrate. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
+This repo is the open-core foundation. Today it ships the `tessera` CLI and an indexer that turns a project directory into a structural graph via per-language extractors. [`crates/graph/SPEC.md`](crates/graph/SPEC.md) is the canonical graph specification for this substrate. The unified code+domain layer, cascading-contracts workflow, and review surfaces described in `ABOUT.md` sit above this substrate and are not yet in this repo.
 
 Rust monorepo, very early stage. The root development entrypoint is
 `cargo xtask`; the desktop frontend uses pnpm behind that Rust workflow.
@@ -15,6 +15,8 @@ crates/
   core/           # shared app-neutral Rust metadata and future substrate logic
   desktop/        # Tauri desktop app; Vite/React is view-only
   graph/          # canonical graph types and SPEC.md (normative specification)
+  indexer/        # project indexer: runs language extractors, produces graph
+  store/          # TerminusDB-backed persistence layer
 xtask/            # workspace-root automation crate (cargo xtask)
 docs/
   fixtures.md     # toolchains and setup for analyzer test fixtures
@@ -27,6 +29,7 @@ forks/            # gitignored — third-party repos used as analyzer fixtures
 - Rust toolchain pinned by [`rust-toolchain.toml`](rust-toolchain.toml) (currently `1.85`, with `rustfmt` and `clippy`). `rustup` will fetch it automatically on first build.
 - pnpm for desktop UI tooling. The primary commands below call pnpm through
   `cargo xtask`.
+- Docker for the TerminusDB graph store (`docker-compose.yml` at repo root). Copy `.env.example` to `.env` and set `TERMINUSDB_ADMIN_PASS`.
 
 ## Build
 
@@ -69,7 +72,7 @@ tessera version                      # pretty mode (default)
 tessera version --format json        # machine-readable
 ```
 
-`tessera index <project>` is reserved on the CLI surface but currently exits with a "not yet implemented" error — the indexer is being rebuilt around homemade per-language parsers.
+`tessera index <project>` runs the per-language extractors on the target directory and reports tile/bond counts.
 
 Global flags available on every subcommand:
 
