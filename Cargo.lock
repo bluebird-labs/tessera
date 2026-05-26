@@ -3409,7 +3409,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tessera-core",
- "tessera-graph",
+ "tessera-indexer",
 ]
 
 [[package]]
@@ -3432,6 +3432,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "tessera-indexer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tessera-graph",
 ]
 
 [[package]]
