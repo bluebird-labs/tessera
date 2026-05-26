@@ -41,15 +41,16 @@ pub fn index(opts: &IndexOptions) -> anyhow::Result<Mosaic> {
     })?;
 
     let extractor = find_extractor()?;
+    let tsx = find_tsx(&extractor)?;
 
-    let mut child = Command::new("npx")
-        .args(["tsx", &extractor.to_string_lossy()])
+    let mut child = Command::new(&tsx)
+        .arg(&extractor)
         .arg(&project_root)
         .arg(&opts.corpus_name)
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
-        .context("failed to spawn TypeScript extractor")?;
+        .with_context(|| format!("failed to spawn tsx at {}", tsx.display()))?;
 
     let stdout = child.stdout.take().expect("stdout was piped");
     let reader = BufReader::new(stdout);
@@ -67,6 +68,26 @@ pub fn index(opts: &IndexOptions) -> anyhow::Result<Mosaic> {
     Ok(mosaic)
 }
 
+fn find_tsx(extractor_entry: &std::path::Path) -> anyhow::Result<PathBuf> {
+    if let Some(extractor_root) = extractor_entry.parent().and_then(|p| p.parent()) {
+        let local = extractor_root.join("node_modules/.bin/tsx");
+        if local.exists() {
+            return Ok(local);
+        }
+    }
+
+    if let Ok(output) = Command::new("which").arg("tsx").output() {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Ok(PathBuf::from(path));
+            }
+        }
+    }
+
+    bail!("tsx not found. Install it in extractors/ts/ (pnpm install) or globally.");
+}
+
 fn find_extractor() -> anyhow::Result<PathBuf> {
     let mut dir = std::env::current_dir()?;
     loop {
@@ -82,7 +103,6 @@ fn find_extractor() -> anyhow::Result<PathBuf> {
         }
     }
 
-    // Also check relative to the executable location.
     if let Ok(exe) = std::env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             for ancestor in exe_dir.ancestors() {
