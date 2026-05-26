@@ -10,8 +10,6 @@ crates/desktop/node_modules/
 /forks/
 .tessera/
 .attic/
-<<<<<<< ours
 .air/
 .DS_Store
-=======
->>>>>>> theirs
+.env
