@@ -1,6 +1,11 @@
-/* Tessera · Design Tokens + App Resets
- * Tokens from design/tokens.css — the single source of truth.
- * Direction: Prism
+/* Tessera · Design Tokens
+ *
+ * The only place token values are authored. Import from the app's global
+ * stylesheet, then reference variables in components. Add new tokens here
+ * before using them anywhere else.
+ *
+ * Direction: Prism — see DESIGN_SYSTEM.md for full context.
+ * Theme switching: toggle `data-theme="light"` on <html> or <body>.
  */
 
 :root {
@@ -16,7 +21,7 @@
   --line:          rgba(255, 255, 255, 0.06);
   --line-hi:       rgba(255, 255, 255, 0.12);
 
-  /* ─── Text ───────────────────────────────���─────────────────────────── */
+  /* ─── Text ─────────────────────────────────────────────────────────── */
   --text:          #f5f6fb;
   --text-dim:      rgba(245, 246, 251, 0.66);
   --text-mute:     rgba(245, 246, 251, 0.38);
@@ -35,7 +40,7 @@
   --amber:         #fb923c;
   --coral:         #fb7185;
 
-  /* ─── Accent backgrounds · for chips, callouts, selected rows ──���───── */
+  /* ─── Accent backgrounds · for chips, callouts, selected rows ──────── */
   --indigo-bg:     rgba(91, 107, 255, 0.14);
   --indigo-bg-2:   rgba(91, 107, 255, 0.22);
   --magenta-bg:    rgba(255, 77, 140, 0.14);
@@ -45,7 +50,8 @@
   --amber-bg:      rgba(251, 146, 60, 0.16);
   --coral-bg:      rgba(251, 113, 133, 0.14);
 
-  /* ─── Semantic aliases ─────────────────────────────────────────────── */
+  /* ─── Semantic aliases · use these in components ───────────────────── */
+  /* Graph node types — each accent is bound to one type forever. */
   --node-contract:    var(--indigo);
   --node-usecase:     var(--cyan);
   --node-aggregate:   var(--magenta);
@@ -53,12 +59,14 @@
   --node-decision:    var(--violet);
   --node-actor:       var(--text);
 
+  /* Cascade state — lime = done, amber = in-flight, coral = drift. */
   --state-frozen:     var(--lime);
   --state-drafting:   var(--amber);
   --state-locked:     var(--text-mute);
   --state-drift:      var(--coral);
   --state-error:      var(--coral);
 
+  /* Interactive */
   --accent:           var(--indigo);
   --accent-grad:      linear-gradient(135deg, var(--indigo), var(--violet));
 
@@ -69,7 +77,7 @@
   --font-mono: "JetBrains Mono", "Geist Mono", "SF Mono", Menlo,
                Consolas, monospace;
 
-  /* ─── Spacing scale ────────────────────────────────────────────────── */
+  /* ─── Spacing scale · multiples of 4 ───────────────────────────────── */
   --space-1:  4px;
   --space-2:  8px;
   --space-3:  12px;
@@ -78,27 +86,45 @@
   --space-6:  32px;
   --space-7:  48px;
   --space-8:  64px;
+  --space-9:  96px;
+  --space-10: 128px;
 
-  /* ─��─ Radii ────────────────────────────────────────────────────────── */
-  --radius-1:    4px;
-  --radius-2:    6px;
-  --radius-3:    8px;
-  --radius-4:    10px;
-  --radius-5:    12px;
-  --radius-6:    14px;
-  --radius-full: 999px;
+  /* ─── Radii ────────────────────────────────────────────────────────── */
+  --radius-1:    4px;     /* inputs, chips, badges */
+  --radius-2:    6px;     /* buttons, segmented controls */
+  --radius-3:    8px;     /* inputs (default), pill filters */
+  --radius-4:    10px;    /* cards, glass panels */
+  --radius-5:    12px;    /* floating menus, tooltips, modals */
+  --radius-6:    14px;    /* state boxes (empty / loading / error) */
+  --radius-full: 999px;   /* tag chips, avatars, dot indicators */
 
-  /* ─── Elevation ────────────────────────────────────────────────────── */
+  /* ─── Elevation · shadows + 1px borders ────────────────────────────── */
   --elev-1: 0 1px 0 var(--line);
   --elev-2: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--line);
   --elev-3: 0 16px 48px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--line);
+  --elev-4: 0 30px 80px -20px rgba(91, 107, 255, 0.5),
+            0 0 0 1px rgba(91, 107, 255, 0.25);
 
-  /* ─── Glows ────────────────────────────────────────────────────────── */
+  /* ─── Glows · tinted to the element's accent ───────────────────────── */
   --glow-primary: 0 6px 20px -4px rgba(91, 107, 255, 0.9),
                   inset 0 0 0 1px rgba(91, 107, 255, 0.3);
+  --glow-frozen:  0 0 6px var(--lime);
+  --glow-drift:   0 0 8px var(--coral);
+
+  /* ─── Motion · springs are the default ─────────────────────────────── */
+  /* Use these via framer-motion `transition={{ type:'spring', ... }}`
+     or your animation lib of choice. */
+  --spring-stiff:  400 / 30;  /* notation: stiffness / damping */
+  --spring-soft:   180 / 22;
+  --spring-gentle: 120 / 18;
+
+  /* Linear easing — only for short hover color shifts. */
+  --ease-standard:  cubic-bezier(0.2, 0.7, 0.2, 1);
+  --duration-hover: 180ms;
 }
 
 /* ─── Light mode override ────────────────────────────────────────────── */
+/* Accent spectrum stays unchanged across themes — it's the brand. */
 [data-theme="light"] {
   --canvas:        #fbfbfd;
   --canvas-warp:   #f5f6fb;
@@ -111,27 +137,4 @@
   --text:          #0a0b14;
   --text-dim:      rgba(10, 11, 20, 0.66);
   --text-mute:     rgba(10, 11, 20, 0.42);
-}
-
-/* ─── Resets ─────────────────────────────────────────────────────────── */
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  margin: 0;
-  min-height: 100vh;
-  background: var(--canvas);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-}
-
-body {
-  overflow: hidden;
 }

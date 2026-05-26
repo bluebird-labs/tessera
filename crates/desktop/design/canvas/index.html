@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tessera · Design Canvas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300..800&family=Inter:wght@300..700&family=JetBrains+Mono:wght@300..600&family=Geist:wght@300..800&family=Geist+Mono:wght@300..600&family=Plus+Jakarta+Sans:wght@300..800&display=swap"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #0a0a0a;
+        font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
+      }
+    </style>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" src="./design-canvas.jsx"></script>
+    <script type="text/babel" src="./shared.jsx"></script>
+    <script type="text/babel" src="./prism.jsx"></script>
+    <script type="text/babel" src="./alternates/instrument.jsx"></script>
+    <script type="text/babel" src="./alternates/studio.jsx"></script>
+    <script type="text/babel">
+      const { DesignCanvas, DCSection, DCArtboard } = window;
+      const P = window.Prism;
+      const I = window.Instrument;
+      const S = window.Studio;
+
+      function App() {
+        return (
+          <DesignCanvas
+            title="Tessera · Visual Identity"
+            subtitle="Direction Prism is the chosen visual language. Instrument and Studio are kept as rejected alternates, for reference only."
+          >
+            {/* ───────────────────── PRISM · CHOSEN ───────────────────── */}
+            <DCSection
+              id="prism"
+              title="Prism · the chosen direction"
+              subtitle="Vibrant multi-hue accent system, glass surfaces, gradient washes, soft glows on selection. Depth-of-field mosaic with vivid focus and fading periphery. Both dark and light shells."
+            >
+              <DCArtboard id="p-foundations" label="Foundations" width={1400} height={1100}>
+                <P.Foundations />
+              </DCArtboard>
+              <DCArtboard id="p-shell-dark" label="App shell · Dark" width={1440} height={920}>
+                <P.ShellDark />
+              </DCArtboard>
+              <DCArtboard id="p-shell-light" label="App shell · Light" width={1440} height={920}>
+                <P.ShellLight />
+              </DCArtboard>
+              <DCArtboard id="p-inspector" label="Inspector & graph diff" width={1400} height={960}>
+                <P.InspectorDiff />
+              </DCArtboard>
+              <DCArtboard id="p-components" label="Components & states" width={1400} height={1040}>
+                <P.Components />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ───────────────────── ALT: INSTRUMENT ───────────────────── */}
+            <DCSection
+              id="instrument"
+              title="Alt · Instrument (rejected)"
+              subtitle="Engineering instrument. Cool slate + single indigo accent. Reference only — kept to make the case that Prism's vibrancy is intentional."
+            >
+              <DCArtboard id="i-foundations" label="Foundations" width={1400} height={1180}>
+                <I.Foundations />
+              </DCArtboard>
+              <DCArtboard id="i-shell-dark" label="App shell · Dark" width={1440} height={920}>
+                <I.ShellDark />
+              </DCArtboard>
+              <DCArtboard id="i-shell-light" label="App shell · Light" width={1440} height={920}>
+                <I.ShellLight />
+              </DCArtboard>
+              <DCArtboard id="i-inspector" label="Inspector & graph diff" width={1400} height={960}>
+                <I.InspectorDiff />
+              </DCArtboard>
+              <DCArtboard id="i-components" label="Components & states" width={1400} height={1040}>
+                <I.Components />
+              </DCArtboard>
+            </DCSection>
+
+            {/* ───────────────────── ALT: STUDIO ───────────────────── */}
+            <DCSection
+              id="studio"
+              title="Alt · Studio (rejected)"
+              subtitle="High-contrast mono + electric lime. Reference only — the most opinionated rejected alternative."
+            >
+              <DCArtboard id="s-foundations" label="Foundations" width={1400} height={1100}>
+                <S.Foundations />
+              </DCArtboard>
+              <DCArtboard id="s-shell-dark" label="App shell · Dark" width={1440} height={920}>
+                <S.ShellDark />
+              </DCArtboard>
+              <DCArtboard id="s-shell-light" label="App shell · Light" width={1440} height={920}>
+                <S.ShellLight />
+              </DCArtboard>
+              <DCArtboard id="s-inspector" label="Inspector & graph diff" width={1400} height={960}>
+                <S.InspectorDiff />
+              </DCArtboard>
+              <DCArtboard id="s-components" label="Components & states" width={1400} height={1040}>
+                <S.Components />
+              </DCArtboard>
+            </DCSection>
+          </DesignCanvas>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>
