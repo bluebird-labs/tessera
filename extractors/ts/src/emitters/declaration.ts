@@ -393,7 +393,11 @@ function emitNamespace(
       emitDecl(typeName, "Type", scope, nsMid, stmt);
     } else if (Node.isFunctionDeclaration(stmt)) {
       const fnName = stmt.getName();
-      if (fnName) emitDecl(fnName, "Function", scope, nsMid, stmt);
+      if (fnName) {
+        const did = emitDecl(fnName, "Function", scope, nsMid, stmt);
+        emitFunctionScope(stream, corpus, lang, modPath + "." + name, did, fnName, stmt, fid, relPath, scopeOrd++, anchorOrd);
+        emitParams(stream, corpus, lang, modPath + "." + name, did, fnName, stmt, fid, relPath, anchorOrd);
+      }
     } else if (Node.isVariableStatement(stmt)) {
       for (const decl of stmt.getDeclarationList().getDeclarations()) {
         emitVariableDecl(stream, corpus, lang, modPath + "." + name, scope, nsMid, fid, relPath, decl, anchorOrd, scopeOrd, emitDecl);

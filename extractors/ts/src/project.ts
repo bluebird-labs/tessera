@@ -1,5 +1,5 @@
 import { Project, ScriptTarget, ModuleKind } from "ts-morph";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
 
 export interface ProjectOptions {
   projectRoot: string;
@@ -27,9 +27,15 @@ export function createProject(opts: ProjectOptions): Project {
   });
 
   project.addSourceFilesAtPaths([
-    `${root}/*.js`,
-    `${root}/lib/**/*.js`,
-    `${root}/*.d.ts`,
+    `${root}/**/*.ts`,
+    `${root}/**/*.tsx`,
+    `${root}/**/*.js`,
+    `${root}/**/*.d.ts`,
+    `!${root}/**/node_modules/**`,
+    `!${root}/**/test/**`,
+    `!${root}/**/tests/**`,
+    `!${root}/**/__tests__/**`,
+    `!${root}/**/benchmarks/**`,
   ]);
 
   return project;
@@ -39,9 +45,5 @@ export function getCorpusRelativePath(
   projectRoot: string,
   absolutePath: string,
 ): string {
-  const root = resolve(projectRoot);
-  const rel = absolutePath.startsWith(root + "/")
-    ? absolutePath.slice(root.length + 1)
-    : absolutePath;
-  return rel;
+  return relative(resolve(projectRoot), resolve(absolutePath));
 }

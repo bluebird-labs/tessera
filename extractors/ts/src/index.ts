@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { basename, resolve, sep } from "node:path";
 import { createProject, getCorpusRelativePath } from "./project.js";
 import { MosaicStream } from "./builder.js";
 import { emitCorpus, emitFiles, emitDependencies } from "./emitters/corpus.js";
@@ -17,7 +17,7 @@ function main(): void {
   }
 
   const root = resolve(projectRoot);
-  const corpusName = process.argv[3] ?? root.split("/").pop() ?? "unknown";
+  const corpusName = process.argv[3] ?? basename(root) ?? "unknown";
   const corpus = `local/${corpusName}`;
 
   const project = createProject({ projectRoot: root });
@@ -29,7 +29,7 @@ function main(): void {
 
   for (const sourceFile of project.getSourceFiles()) {
     const relPath = getCorpusRelativePath(root, sourceFile.getFilePath());
-    if (relPath.includes("node_modules/")) continue;
+    if (relPath.split(sep).includes("node_modules")) continue;
 
     emitDeclarations(stream, corpus, root, sourceFile);
     emitImports(stream, corpus, root, sourceFile);
@@ -37,7 +37,7 @@ function main(): void {
 
   for (const sourceFile of project.getSourceFiles()) {
     const relPath = getCorpusRelativePath(root, sourceFile.getFilePath());
-    if (relPath.includes("node_modules/")) continue;
+    if (relPath.split(sep).includes("node_modules")) continue;
 
     emitCrossReferences(stream, corpus, root, sourceFile);
     emitTypes(stream, corpus, root, sourceFile);

@@ -122,12 +122,15 @@ function classifyReference(
     }
   }
 
-  if (
-    Node.isBinaryExpression(parent) &&
-    parent.getOperatorToken().getKind() === SyntaxKind.EqualsToken
-  ) {
-    if (parent.getLeft() === id) return "writes";
-    return "reads";
+  if (Node.isBinaryExpression(parent)) {
+    const op = parent.getOperatorToken().getKind();
+    const isAssignment =
+      op >= SyntaxKind.EqualsToken &&
+      op <= SyntaxKind.CaretEqualsToken;
+    if (isAssignment) {
+      if (parent.getLeft() === id) return "writes";
+      return "reads";
+    }
   }
 
   if (

@@ -134,7 +134,7 @@ export function toCanonical(id: TesseraId): string {
 export function filePathToModulePath(relPath: string): string {
   return relPath
     .replace(/\.[^.]+$/, "")
-    .replace(/\//g, ".");
+    .replace(/[\\/]/g, ".");
 }
 
 export function tesseraIdEq(a: TesseraId, b: TesseraId): boolean {

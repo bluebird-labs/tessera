@@ -74,31 +74,40 @@ export function emitDependencies(
 
   const cid = corpusId(corpus);
 
-  const emitDeps = (
+  type DepMeta = { versionSpec: string; devOnly: boolean; optional: boolean };
+  const acc = new Map<string, DepMeta>();
+
+  const collect = (
     deps: Record<string, string>,
     opts: { devOnly?: boolean; optional?: boolean } = {},
   ) => {
     for (const [name, versionSpec] of Object.entries(deps)) {
-      const did = dependencyId(corpus, name);
-      const facts: Record<string, import("../mosaic.js").FactValue> = {
-        [F.DEPENDENCY_NAME]: { String: name },
-        [F.DEPENDENCY_VERSION_SPEC]: { String: versionSpec },
-      };
-      if (opts.devOnly) facts[F.DEPENDENCY_DEV_ONLY] = { Boolean: true };
-      if (opts.optional) facts[F.DEPENDENCY_OPTIONAL] = { Boolean: true };
-
-      stream.emitTile(did, "Dependency", facts);
-      stream.emitBond("depends_on", cid, did);
+      const prev = acc.get(name);
+      acc.set(name, {
+        versionSpec: prev?.versionSpec ?? versionSpec,
+        devOnly: Boolean(prev?.devOnly || opts.devOnly),
+        optional: Boolean(prev?.optional || opts.optional),
+      });
     }
   };
 
-  if (pkg.dependencies && typeof pkg.dependencies === "object") {
-    emitDeps(pkg.dependencies as Record<string, string>);
-  }
-  if (pkg.devDependencies && typeof pkg.devDependencies === "object") {
-    emitDeps(pkg.devDependencies as Record<string, string>, { devOnly: true });
-  }
-  if (pkg.optionalDependencies && typeof pkg.optionalDependencies === "object") {
-    emitDeps(pkg.optionalDependencies as Record<string, string>, { optional: true });
+  if (pkg.dependencies && typeof pkg.dependencies === "object")
+    collect(pkg.dependencies as Record<string, string>);
+  if (pkg.devDependencies && typeof pkg.devDependencies === "object")
+    collect(pkg.devDependencies as Record<string, string>, { devOnly: true });
+  if (pkg.optionalDependencies && typeof pkg.optionalDependencies === "object")
+    collect(pkg.optionalDependencies as Record<string, string>, { optional: true });
+
+  for (const [name, meta] of acc) {
+    const did = dependencyId(corpus, name);
+    const facts: Record<string, import("../mosaic.js").FactValue> = {
+      [F.DEPENDENCY_NAME]: { String: name },
+      [F.DEPENDENCY_VERSION_SPEC]: { String: meta.versionSpec },
+    };
+    if (meta.devOnly) facts[F.DEPENDENCY_DEV_ONLY] = { Boolean: true };
+    if (meta.optional) facts[F.DEPENDENCY_OPTIONAL] = { Boolean: true };
+
+    stream.emitTile(did, "Dependency", facts);
+    stream.emitBond("depends_on", cid, did);
   }
 }
