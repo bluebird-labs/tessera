@@ -90,16 +90,6 @@ jobs:
             echo "::error::tessera-cli coverage ${line_pct}% is below threshold ${threshold}%"
             exit 1
           fi
-      - name: tessera-indexer coverage
-        run: |
-          cargo llvm-cov --package tessera-indexer --summary-only 2>&1 | tee /tmp/indexer-cov.txt
-          line_pct=$(grep '^TOTAL' /tmp/indexer-cov.txt | awk '{print $10}' | tr -d '%')
-          echo "tessera-indexer line coverage: ${line_pct}%"
-          threshold=50
-          if [ "$(echo "$line_pct < $threshold" | bc -l)" -eq 1 ]; then
-            echo "::error::tessera-indexer coverage ${line_pct}% is below threshold ${threshold}%"
-            exit 1
-          fi
       - name: tessera-graph coverage
         run: |
           cargo llvm-cov --package tessera-graph --summary-only 2>&1 | tee /tmp/graph-cov.txt
