@@ -22,8 +22,8 @@ pub struct Mosaic {
 
 mod tiles_ser {
     use super::{BTreeMap, Deserialize, Tessera, TesseraId};
-    use serde::ser::SerializeSeq;
     use serde::Serializer;
+    use serde::ser::SerializeSeq;
 
     pub(super) fn serialize<S: Serializer>(
         tiles: &BTreeMap<TesseraId, Tessera>,
@@ -327,7 +327,10 @@ mod tests {
     fn mosaic_json_tiles_is_array() {
         let mosaic = json_mosaic();
         let value: serde_json::Value = serde_json::to_value(&mosaic).unwrap();
-        assert!(value["tiles"].is_array(), "tiles must serialize as a JSON array");
+        assert!(
+            value["tiles"].is_array(),
+            "tiles must serialize as a JSON array"
+        );
         assert!(value["bonds"].is_array());
         assert_eq!(value["tiles"].as_array().unwrap().len(), 4);
         assert_eq!(value["bonds"].as_array().unwrap().len(), 2);
@@ -335,18 +338,11 @@ mod tests {
 
     #[test]
     fn tessera_json_shape() {
-        let id = TesseraId::new(
-            "corp",
-            LanguageTag::Js,
-            "pino",
-            "",
-            "pino",
+        let id = TesseraId::new("corp", LanguageTag::Js, "pino", "", "pino");
+        let t = Tessera::new(id, TesseraKind::Function).with_fact(
+            fact_keys::DOC_TEXT,
+            FactValue::String("Main logger factory".into()),
         );
-        let t = Tessera::new(id, TesseraKind::Function)
-            .with_fact(
-                fact_keys::DOC_TEXT,
-                FactValue::String("Main logger factory".into()),
-            );
         let value: serde_json::Value = serde_json::to_value(&t).unwrap();
 
         assert_eq!(value["kind"], "Function");
@@ -375,6 +371,9 @@ mod tests {
     fn fact_value_enum_json_shape() {
         let fv = FactValue::from(ModuleKind::FileModule);
         let value: serde_json::Value = serde_json::to_value(&fv).unwrap();
-        assert_eq!(value, serde_json::json!({"Enum": {"ModuleKind": "file_module"}}));
+        assert_eq!(
+            value,
+            serde_json::json!({"Enum": {"ModuleKind": "file_module"}})
+        );
     }
 }

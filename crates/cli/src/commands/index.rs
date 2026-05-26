@@ -51,9 +51,10 @@ impl Render for IndexOutput {
 }
 
 pub(crate) fn run(args: IndexArgs) -> anyhow::Result<IndexOutput> {
-    let project_root = args.path.canonicalize().with_context(|| {
-        format!("cannot resolve project directory: {}", args.path.display())
-    })?;
+    let project_root = args
+        .path
+        .canonicalize()
+        .with_context(|| format!("cannot resolve project directory: {}", args.path.display()))?;
 
     let corpus_name = args
         .corpus
@@ -107,7 +108,9 @@ pub(crate) fn run(args: IndexArgs) -> anyhow::Result<IndexOutput> {
         );
     }
 
-    let mosaic = builder.build().context("building mosaic from extractor output")?;
+    let mosaic = builder
+        .build()
+        .context("building mosaic from extractor output")?;
 
     let mut kind_counts: BTreeMap<String, usize> = BTreeMap::new();
     for tile in mosaic.tiles() {
@@ -137,9 +140,7 @@ fn find_extractor() -> anyhow::Result<PathBuf> {
         }
     }
 
-    bail!(
-        "TypeScript extractor not found. Expected at <workspace>/extractors/ts/src/index.ts"
-    );
+    bail!("TypeScript extractor not found. Expected at <workspace>/extractors/ts/src/index.ts");
 }
 
 #[derive(Deserialize)]
