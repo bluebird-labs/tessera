@@ -97,6 +97,8 @@ spec_enum! {
         Void => "void",
         Never => "never",
         Null => "null",
+        Any => "any",
+        Unknown => "unknown",
         Record => "record",
         Tuple => "tuple",
         Sum => "sum",
@@ -110,6 +112,7 @@ spec_enum! {
         Future => "future",
         Channel => "channel",
         Iterator => "iterator",
+        Intersection => "intersection",
         Alias => "alias",
     }
 }

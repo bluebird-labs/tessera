@@ -12,8 +12,36 @@ use crate::kind::TesseraKind;
 /// A canonical graph — an assembled mosaic of tesserae and bonds (spec §6.1).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mosaic {
+    #[serde(
+        serialize_with = "tiles_ser::serialize",
+        deserialize_with = "tiles_ser::deserialize"
+    )]
     tiles: BTreeMap<TesseraId, Tessera>,
     bonds: Vec<Bond>,
+}
+
+mod tiles_ser {
+    use super::{BTreeMap, Deserialize, Tessera, TesseraId};
+    use serde::Serializer;
+    use serde::ser::SerializeSeq;
+
+    pub(super) fn serialize<S: Serializer>(
+        tiles: &BTreeMap<TesseraId, Tessera>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
+        let mut seq = s.serialize_seq(Some(tiles.len()))?;
+        for tile in tiles.values() {
+            seq.serialize_element(tile)?;
+        }
+        seq.end()
+    }
+
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        d: D,
+    ) -> Result<BTreeMap<TesseraId, Tessera>, D::Error> {
+        let vec = Vec::<Tessera>::deserialize(d)?;
+        Ok(vec.into_iter().map(|t| (t.id.clone(), t)).collect())
+    }
 }
 
 /// A single tile in the mosaic (spec §6.2).
@@ -157,7 +185,7 @@ mod tests {
     use crate::enums::{ConformanceProfile, ModuleKind};
     use crate::id::{LanguageTag, TesseraId};
 
-    fn sample_mosaic() -> Mosaic {
+    fn accessor_mosaic() -> Mosaic {
         let corpus_id = TesseraId::corpus("corp");
         let file_id = TesseraId::file("corp", "src/main.rs");
         let mod_id = TesseraId::module("corp", LanguageTag::Rust, "app");
@@ -192,9 +220,40 @@ mod tests {
         builder.build().unwrap()
     }
 
+    fn json_mosaic() -> Mosaic {
+        let corpus = "github.com/pinojs/pino@v9.0.0";
+        let corpus_id = TesseraId::corpus(corpus);
+        let module_id = TesseraId::module(corpus, LanguageTag::Js, "pino");
+        let file_id = TesseraId::file(corpus, "pino.js");
+        let fn_id = TesseraId::new(corpus, LanguageTag::Js, "pino", "", "pino");
+
+        let mut builder = MosaicBuilder::new();
+        builder
+            .add(Tessera::corpus(
+                corpus_id.clone(),
+                "pinojs/pino",
+                &[ConformanceProfile::Core],
+            ))
+            .unwrap();
+        builder
+            .add(Tessera::module(module_id.clone(), ModuleKind::FileModule))
+            .unwrap();
+        builder
+            .add(Tessera::file(file_id.clone(), "pino.js"))
+            .unwrap();
+        builder
+            .add(Tessera::new(fn_id.clone(), TesseraKind::Function))
+            .unwrap();
+
+        builder.bond(Bond::new(BondKind::ChildOf, module_id, corpus_id));
+        builder.bond(Bond::new(BondKind::DefinedIn, fn_id, file_id));
+
+        builder.build().unwrap()
+    }
+
     #[test]
     fn tile_lookup() {
-        let mosaic = sample_mosaic();
+        let mosaic = accessor_mosaic();
         let corpus_id = TesseraId::corpus("corp");
         assert!(mosaic.tile(&corpus_id).is_some());
 
@@ -204,13 +263,13 @@ mod tests {
 
     #[test]
     fn tiles_iterator() {
-        let mosaic = sample_mosaic();
+        let mosaic = accessor_mosaic();
         assert_eq!(mosaic.tiles().count(), 4);
     }
 
     #[test]
     fn bonds_from_and_to() {
-        let mosaic = sample_mosaic();
+        let mosaic = accessor_mosaic();
         let corpus_id = TesseraId::corpus("corp");
         let mod_id = TesseraId::module("corp", LanguageTag::Rust, "app");
 
@@ -220,7 +279,7 @@ mod tests {
 
     #[test]
     fn corpus_tiles_filter() {
-        let mosaic = sample_mosaic();
+        let mosaic = accessor_mosaic();
         let corpus_tiles: Vec<_> = mosaic.corpus_tiles().collect();
         assert_eq!(corpus_tiles.len(), 1);
         assert_eq!(corpus_tiles[0].kind, TesseraKind::Corpus);
@@ -254,5 +313,67 @@ mod tests {
             .with_fact("key", FactValue::Boolean(true));
         assert_eq!(bond.ordinal, Some(3));
         assert_eq!(bond.facts.get("key"), Some(&FactValue::Boolean(true)));
+    }
+
+    #[test]
+    fn mosaic_json_round_trip() {
+        let mosaic = json_mosaic();
+        let json = serde_json::to_string_pretty(&mosaic).unwrap();
+        let deserialized: Mosaic = serde_json::from_str(&json).unwrap();
+        assert_eq!(mosaic, deserialized);
+    }
+
+    #[test]
+    fn mosaic_json_tiles_is_array() {
+        let mosaic = json_mosaic();
+        let value: serde_json::Value = serde_json::to_value(&mosaic).unwrap();
+        assert!(
+            value["tiles"].is_array(),
+            "tiles must serialize as a JSON array"
+        );
+        assert!(value["bonds"].is_array());
+        assert_eq!(value["tiles"].as_array().unwrap().len(), 4);
+        assert_eq!(value["bonds"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn tessera_json_shape() {
+        let id = TesseraId::new("corp", LanguageTag::Js, "pino", "", "pino");
+        let t = Tessera::new(id, TesseraKind::Function).with_fact(
+            fact_keys::DOC_TEXT,
+            FactValue::String("Main logger factory".into()),
+        );
+        let value: serde_json::Value = serde_json::to_value(&t).unwrap();
+
+        assert_eq!(value["kind"], "Function");
+        assert_eq!(value["id"]["language"], "js");
+        assert_eq!(value["id"]["module"], "pino");
+        assert_eq!(
+            value["facts"]["tessera/doc/text"],
+            serde_json::json!({"String": "Main logger factory"})
+        );
+    }
+
+    #[test]
+    fn bond_json_shape() {
+        let src = TesseraId::new("corp", LanguageTag::Js, "pino", "", "pino");
+        let tgt = TesseraId::file("corp", "pino.js");
+        let bond = Bond::new(BondKind::DefinedIn, src, tgt).with_ordinal(0);
+
+        let value: serde_json::Value = serde_json::to_value(&bond).unwrap();
+        assert_eq!(value["kind"], "defined_in");
+        assert_eq!(value["ordinal"], 0);
+        assert_eq!(value["source"]["language"], "js");
+        assert_eq!(value["target"]["signature"], "file:pino.js");
+    }
+
+    #[test]
+    fn fact_value_enum_json_shape() {
+        let fv = FactValue::from(ModuleKind::FileModule);
+        let value: serde_json::Value = serde_json::to_value(&fv).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({"Enum": {"ModuleKind": "file_module"}})
+        );
     }
 }

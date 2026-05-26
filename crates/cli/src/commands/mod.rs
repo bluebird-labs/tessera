@@ -26,7 +26,8 @@ pub(crate) fn run(cli: Cli) -> anyhow::Result<ExitCode> {
             ExitCode::SUCCESS
         }
         Command::Index(args) => {
-            index::run(args)?;
+            let value = index::run(args)?;
+            emit(&value, cli.format, &mut stdout, &styles)?;
             ExitCode::SUCCESS
         }
     };
