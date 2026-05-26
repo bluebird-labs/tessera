@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov@0.6.21 --locked
+      - name: tessera-cli coverage
+        run: |
+          cargo llvm-cov --package tessera-cli --summary-only 2>&1 | tee /tmp/cli-cov.txt
+          line_pct=$(grep '^TOTAL' /tmp/cli-cov.txt | awk '{print $10}' | tr -d '%')
+          echo "tessera-cli line coverage: ${line_pct}%"
+          threshold=63
+          if [ "$(echo "$line_pct < $threshold" | bc -l)" -eq 1 ]; then
+            echo "::error::tessera-cli coverage ${line_pct}% is below threshold ${threshold}%"
+            exit 1
+          fi
+      - name: tessera-graph coverage
+        run: |
+          cargo llvm-cov --package tessera-graph --summary-only 2>&1 | tee /tmp/graph-cov.txt
+          line_pct=$(grep '^TOTAL' /tmp/graph-cov.txt | awk '{print $10}' | tr -d '%')
+          echo "tessera-graph line coverage: ${line_pct}%"
+          threshold=77
+          if [ "$(echo "$line_pct < $threshold" | bc -l)" -eq 1 ]; then
+            echo "::error::tessera-graph coverage ${line_pct}% is below threshold ${threshold}%"
+            exit 1
+          fi
+
+  desktop:
+    name: Desktop build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.85"
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.1.2"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: crates/desktop/pnpm-lock.yaml
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+      - name: Install frontend dependencies
+        run: pnpm --dir crates/desktop install --frozen-lockfile
+      - name: Build frontend
+        run: pnpm --dir crates/desktop build
+      - name: Build desktop crate
+        run: cargo build -p tessera-desktop
