@@ -6,15 +6,8 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
-reqwest = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
+tessera-graph = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true }
-url = { workspace = true }
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["macros"] }
 
 [lints]
 workspace = true

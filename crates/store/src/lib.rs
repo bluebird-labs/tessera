@@ -1,9 +1,9 @@
-#![doc = "TerminusDB-backed persistence layer for Tessera."]
+#![doc = "Abstract persistence port for Tessera graph ingestion."]
 
-mod client;
-mod config;
 mod error;
+mod session;
+pub mod testing;
 
-pub use client::{ServerInfo, TerminusClient};
-pub use config::StoreConfig;
 pub use error::StoreError;
+pub use session::{IngestionSession, IngestionStats};
+pub use testing::MemorySession;
