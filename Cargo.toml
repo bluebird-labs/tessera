@@ -19,6 +19,7 @@ anstream = "0.6"
 tauri = "2.8"
 tauri-build = "2.4"
 tessera-core = { path = "crates/core" }
+tessera-graph = { path = "crates/graph" }
 tessera-store = { path = "crates/store" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
