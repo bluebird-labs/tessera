@@ -62,6 +62,14 @@ pub struct Bond {
     pub facts: BTreeMap<String, FactValue>,
 }
 
+/// A single element in a flat graph stream — either a tile or a bond.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GraphEntry {
+    Tile(Tessera),
+    Bond(Bond),
+}
+
 // --- Mosaic ---
 
 impl Mosaic {

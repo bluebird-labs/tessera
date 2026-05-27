@@ -30,5 +30,5 @@ pub use error::{MosaicError, ParseEnumError};
 pub use fact::FactValue;
 pub use id::{LanguageTag, TesseraId};
 pub use kind::{TesseraKind, TesseraKindGroup};
-pub use mosaic::{Bond, Mosaic, Tessera};
+pub use mosaic::{Bond, GraphEntry, Mosaic, Tessera};
 pub use traits::{Consumer, Producer};

@@ -1,11 +1,9 @@
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdout, Command, Stdio};
 
 use anyhow::{Context, bail};
-use tessera_graph::Mosaic;
-
-use crate::ndjson;
+use tessera_graph::{GraphEntry, Mosaic, MosaicBuilder};
 
 #[derive(Debug)]
 pub struct IndexOptions {
@@ -32,7 +30,57 @@ impl IndexOptions {
     }
 }
 
-pub fn index(opts: &IndexOptions) -> anyhow::Result<Mosaic> {
+pub struct ExtractorStream {
+    child: Child,
+    lines: std::io::Lines<BufReader<ChildStdout>>,
+}
+
+impl std::fmt::Debug for ExtractorStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExtractorStream")
+            .field("child_id", &self.child.id())
+            .finish_non_exhaustive()
+    }
+}
+
+impl ExtractorStream {
+    pub fn finish(mut self) -> anyhow::Result<()> {
+        drop(self.lines);
+        let status = self.child.wait().context("waiting for extractor")?;
+        if !status.success() {
+            bail!(
+                "extractor exited with status {}",
+                status.code().unwrap_or(-1)
+            );
+        }
+        Ok(())
+    }
+}
+
+impl Iterator for ExtractorStream {
+    type Item = anyhow::Result<GraphEntry>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.lines.next()? {
+                Err(e) => {
+                    return Some(Err(
+                        anyhow::Error::new(e).context("reading extractor output")
+                    ));
+                }
+                Ok(line) if line.is_empty() => continue,
+                Ok(line) => {
+                    return Some(
+                        serde_json::from_str::<GraphEntry>(&line)
+                            .context("parsing extractor NDJSON line"),
+                    );
+                }
+            }
+        }
+    }
+}
+
+pub fn index_stream(opts: &IndexOptions) -> anyhow::Result<ExtractorStream> {
     let project_root = opts.project_root.canonicalize().with_context(|| {
         format!(
             "cannot resolve project directory: {}",
@@ -54,18 +102,31 @@ pub fn index(opts: &IndexOptions) -> anyhow::Result<Mosaic> {
 
     let stdout = child.stdout.take().expect("stdout was piped");
     let reader = BufReader::new(stdout);
+    let lines = reader.lines();
 
-    let mosaic = ndjson::read_mosaic(reader)?;
+    Ok(ExtractorStream { child, lines })
+}
 
-    let status = child.wait().context("waiting for extractor")?;
-    if !status.success() {
-        bail!(
-            "extractor exited with status {}",
-            status.code().unwrap_or(-1)
-        );
+pub fn index(opts: &IndexOptions) -> anyhow::Result<Mosaic> {
+    let mut stream = index_stream(opts)?;
+    let mut builder = MosaicBuilder::new();
+
+    for entry in &mut stream {
+        match entry? {
+            GraphEntry::Tile(t) => {
+                builder.add(t)?;
+            }
+            GraphEntry::Bond(b) => {
+                builder.bond(b);
+            }
+        }
     }
 
-    Ok(mosaic)
+    stream.finish()?;
+
+    builder
+        .build()
+        .context("building mosaic from extractor output")
 }
 
 fn find_tsx(extractor_entry: &std::path::Path) -> anyhow::Result<PathBuf> {
