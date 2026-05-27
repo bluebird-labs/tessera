@@ -82,7 +82,7 @@ jobs:
         run: cargo install cargo-llvm-cov@0.6.21 --locked
       - name: tessera-cli coverage
         run: |
-          cargo llvm-cov --package tessera-cli --summary-only 2>&1 | tee /tmp/cli-cov.txt
+          cargo llvm-cov --package tessera-cli --ignore-filename-regex 'terminusdb/' --summary-only 2>&1 | tee /tmp/cli-cov.txt
           line_pct=$(grep '^TOTAL' /tmp/cli-cov.txt | awk '{print $10}' | tr -d '%')
           echo "tessera-cli line coverage: ${line_pct}%"
           threshold=35

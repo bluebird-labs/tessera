@@ -3646,6 +3646,8 @@ dependencies = [
  "serde_json",
  "tessera-core",
  "tessera-indexer",
+ "tessera-store",
+ "tessera-terminusdb",
 ]
 
 [[package]]
