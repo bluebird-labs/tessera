@@ -4,4 +4,5 @@
 mod extract;
 mod ndjson;
 
-pub use extract::{IndexOptions, index};
+pub use extract::{ExtractorStream, IndexOptions, index, index_stream};
+pub use ndjson::{read_entries, read_mosaic};
