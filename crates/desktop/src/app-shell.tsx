@@ -1,7 +1,49 @@
 import { useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DiagramCanvas } from "./diagram-canvas";
 import { DEMO_DATA } from "./diagram-demo-data";
 import "./app-shell.css";
+
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
+
+function windowAction(action: "close" | "minimize" | "toggleMaximize") {
+  if (!isTauri) return;
+  const w = getCurrentWindow();
+  switch (action) {
+    case "close": void w.close(); return;
+    case "minimize": void w.minimize(); return;
+    case "toggleMaximize": void w.toggleMaximize(); return;
+  }
+}
+
+function WindowControls() {
+  // On macOS, order is close, minimize, maximize (left-to-right). On Windows/Linux,
+  // the conventional order is minimize, maximize, close (left-to-right) — the close
+  // button is rightmost and gets a distinct hover treatment via CSS.
+  if (isMac) {
+    return (
+      <div className="traffic-lights traffic-lights-mac">
+        <button type="button" className="dot dot-close" aria-label="Close window" onClick={() => windowAction("close")} />
+        <button type="button" className="dot dot-minimize" aria-label="Minimize window" onClick={() => windowAction("minimize")} />
+        <button type="button" className="dot dot-maximize" aria-label="Toggle maximize window" onClick={() => windowAction("toggleMaximize")} />
+      </div>
+    );
+  }
+  return (
+    <div className="window-controls window-controls-winlinux">
+      <button type="button" className="win-control win-minimize" aria-label="Minimize window" onClick={() => windowAction("minimize")}>
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" strokeWidth="1" /></svg>
+      </button>
+      <button type="button" className="win-control win-maximize" aria-label="Toggle maximize window" onClick={() => windowAction("toggleMaximize")}>
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" /></svg>
+      </button>
+      <button type="button" className="win-control win-close" aria-label="Close window" onClick={() => windowAction("close")}>
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" /></svg>
+      </button>
+    </div>
+  );
+}
 
 type View = "mosaic" | "cascade" | "contracts" | "domain" | "agents" | "history" | "settings";
 
@@ -46,13 +88,9 @@ export function AppShell() {
   return (
     <div className="shell">
       {/* Title bar */}
-      <header className="titlebar">
+      <header className="titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
-          <div className="traffic-lights">
-            <span className="dot dot-close" />
-            <span className="dot dot-minimize" />
-            <span className="dot dot-maximize" />
-          </div>
+          {isMac && <WindowControls />}
           <div className="titlebar-brand">
             <PrismLogo size={20} />
             <span className="titlebar-wordmark">Tessera</span>
@@ -72,6 +110,7 @@ export function AppShell() {
             <span>Search</span>
           </button>
           <div className="avatar">SE</div>
+          {!isMac && <WindowControls />}
         </div>
       </header>
 

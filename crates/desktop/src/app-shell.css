@@ -42,13 +42,47 @@
 .dot {
   width: 12px;
   height: 12px;
+  padding: 0;
+  border: none;
   border-radius: 6px;
   opacity: 0.85;
+  cursor: pointer;
+  transition: opacity 120ms ease;
 }
+
+.dot:hover { opacity: 1; }
+.dot:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .dot-close { background: #ff5f57; }
 .dot-minimize { background: #febc2e; }
 .dot-maximize { background: #28c840; }
+
+/* ─── Windows / Linux window controls ───────────────────────────────── */
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.win-control {
+  width: 36px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 120ms ease;
+}
+
+.win-control:hover { background: rgba(255, 255, 255, 0.08); }
+.win-control:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.win-close:hover { background: #e81123; color: #fff; }
 
 .titlebar-brand {
   display: flex;
