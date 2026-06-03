@@ -13,3 +13,9 @@ crates/desktop/node_modules/
 .air/
 .DS_Store
 .env
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
