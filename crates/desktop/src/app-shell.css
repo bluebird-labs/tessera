@@ -30,7 +30,6 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  -webkit-app-region: no-drag;
 }
 
 .traffic-lights {
@@ -48,6 +47,7 @@
   opacity: 0.85;
   cursor: pointer;
   transition: opacity 120ms ease;
+  -webkit-app-region: no-drag;
 }
 
 .dot:hover { opacity: 1; }
@@ -63,7 +63,6 @@
   display: flex;
   align-items: center;
   margin-left: 6px;
-  -webkit-app-region: no-drag;
 }
 
 .win-control {
@@ -78,6 +77,7 @@
   cursor: pointer;
   border-radius: 4px;
   transition: background 120ms ease;
+  -webkit-app-region: no-drag;
 }
 
 .win-control:hover { background: rgba(255, 255, 255, 0.08); }
@@ -101,7 +101,6 @@
   align-items: center;
   gap: 8px;
   justify-content: center;
-  -webkit-app-region: no-drag;
 }
 
 .breadcrumb-segment {
@@ -116,6 +115,7 @@
   font-size: 11px;
   color: var(--text-mute);
   cursor: pointer;
+  -webkit-app-region: no-drag;
 }
 
 .breadcrumb-sep {
@@ -145,7 +145,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  -webkit-app-region: no-drag;
 }
 
 .search-button {
@@ -160,6 +159,7 @@
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 11px;
+  -webkit-app-region: no-drag;
 }
 
 .search-kbd {
@@ -180,6 +180,7 @@
   display: grid;
   place-items: center;
   box-shadow: 0 4px 12px rgba(255, 77, 140, 0.4);
+  -webkit-app-region: no-drag;
 }
 
 /* ─── Body Grid ─────────────────────────────────────────────────────── */
