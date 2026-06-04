@@ -60,24 +60,10 @@ const RAIL_ITEMS: { id: View; icon: string; label: string }[] = [
 function PrismLogo({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32">
-      <defs>
-        <linearGradient id="pl1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#5b6bff" />
-          <stop offset="100%" stopColor="#a855f7" />
-        </linearGradient>
-        <linearGradient id="pl2" x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#ff4d8c" />
-          <stop offset="100%" stopColor="#fb7185" />
-        </linearGradient>
-        <linearGradient id="pl3" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="#22d3ee" />
-          <stop offset="100%" stopColor="#a3e635" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="12" height="12" rx="2" fill="url(#pl1)" />
-      <rect x="18" y="2" width="12" height="12" rx="2" fill="url(#pl2)" />
-      <rect x="2" y="18" width="12" height="12" rx="2" fill="url(#pl3)" />
-      <rect x="18" y="18" width="12" height="12" rx="2" fill="rgba(255,255,255,0.92)" />
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="#5b6bff" />
+      <rect x="18" y="2" width="12" height="12" rx="2" fill="#ff4d8c" />
+      <rect x="2" y="18" width="12" height="12" rx="2" fill="#22d3ee" />
+      <rect x="18" y="18" width="12" height="12" rx="2" fill="#a3e635" />
     </svg>
   );
 }
