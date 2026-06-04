@@ -1,8 +1,15 @@
+// Tauri's `#[tauri::command]` extracts `State<'_, T>` by value from the
+// invoke handler; the pedantic `needless_pass_by_value` lint can't see
+// through the macro, so we silence it module-wide for the handlers.
+#![allow(clippy::needless_pass_by_value)]
+
 use std::path::PathBuf;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use tessera_projects::{Project, ProjectStore, ProjectStoreError};
+use tessera_projects::time::OffsetDateTime;
+use tessera_projects::time::format_description::well_known::Iso8601;
 
 #[tauri::command]
 const fn app_name() -> &'static str {
@@ -21,10 +28,7 @@ impl From<Project> for ProjectDto {
         Self {
             id: project.id,
             path: project.path.to_string_lossy().into_owned(),
-            last_opened: project
-                .last_opened
-                .format(&time::format_description::well_known::Iso8601::DEFAULT)
-                .unwrap_or_default(),
+            last_opened: format_iso8601(project.last_opened),
         }
     }
 }
@@ -57,6 +61,10 @@ fn touch_project(store: State<'_, ProjectStore>, id: i64) -> Result<(), String> 
 
 fn error_to_string(err: ProjectStoreError) -> String {
     err.to_string()
+}
+
+fn format_iso8601(ts: OffsetDateTime) -> String {
+    ts.format(&Iso8601::DEFAULT).unwrap_or_default()
 }
 
 fn project_store(app: &AppHandle) -> Result<ProjectStore, Box<dyn std::error::Error>> {

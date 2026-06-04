@@ -10,6 +10,7 @@
 //! returned as [`Project`] values.
 
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
@@ -17,10 +18,17 @@ use thiserror::Error;
 use time::OffsetDateTime;
 use time::format_description::well_known::Iso8601;
 
+// Re-export `time` so consumers can format/parse [`Project::last_opened`]
+// without taking their own direct dependency on the crate.
+pub use time;
+
 /// `SQLite`-backed registry of opened project folders.
+///
+/// The underlying [`rusqlite::Connection`] is wrapped in a [`Mutex`] so
+/// `ProjectStore` is `Send + Sync` and can be parked in Tauri state.
 #[derive(Debug)]
 pub struct ProjectStore {
-    conn: Connection,
+    conn: Mutex<Connection>,
 }
 
 /// A project folder the user has opened at least once.
@@ -70,24 +78,44 @@ impl ProjectStore {
         }
         let conn = Connection::open(db_path)?;
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Open an in-memory store. Primarily useful for tests.
     pub fn open_in_memory() -> Result<Self, ProjectStoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
+        // A poisoned mutex means a previous query panicked while holding
+        // the lock; downstream errors are more useful than a panic here.
+        self.conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// List all projects, most recently opened first.
+    // `list` holds the connection mutex across a `prepare` + `query_map`
+    // sequence; clippy's `significant_drop_tightening` wants a single
+    // expression, which isn't expressible here without leaking the
+    // rusqlite `Statement`'s borrow of the connection.
+    #[allow(clippy::significant_drop_tightening)]
     pub fn list(&self) -> Result<Vec<Project>, ProjectStoreError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, path, last_opened FROM projects ORDER BY last_opened DESC, id DESC")?;
-        let rows = stmt
+        let conn = self.lock();
+        let mut stmt = conn.prepare(
+            "SELECT id, path, last_opened FROM projects ORDER BY last_opened DESC, id DESC",
+        )?;
+        let rows: Vec<ProjectRow> = stmt
             .query_map([], row_to_project)?
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<_, _>>()?;
+        drop(stmt);
+        drop(conn);
         rows.into_iter().map(parse_project_row).collect()
     }
 
@@ -97,7 +125,7 @@ impl ProjectStore {
         let canonical = canonicalize(path)?;
         let canonical_str = canonical.to_string_lossy().into_owned();
         let now = now_iso8601();
-        let row = self.conn.query_row(
+        let row = self.lock().query_row(
             "INSERT INTO projects(path, last_opened) VALUES(?1, ?2)
              ON CONFLICT(path) DO UPDATE SET last_opened = excluded.last_opened
              RETURNING id, path, last_opened",
@@ -110,7 +138,7 @@ impl ProjectStore {
     /// Remove a project by id.
     pub fn remove(&self, id: i64) -> Result<(), ProjectStoreError> {
         let affected = self
-            .conn
+            .lock()
             .execute("DELETE FROM projects WHERE id = ?1", params![id])?;
         if affected == 0 {
             return Err(ProjectStoreError::NotFound(id));
@@ -121,7 +149,7 @@ impl ProjectStore {
     /// Bump `last_opened` for the row with `id`.
     pub fn touch(&self, id: i64) -> Result<(), ProjectStoreError> {
         let now = now_iso8601();
-        let updated = self.conn.execute(
+        let updated = self.lock().execute(
             "UPDATE projects SET last_opened = ?1 WHERE id = ?2",
             params![now, id],
         )?;
@@ -134,7 +162,7 @@ impl ProjectStore {
     /// Fetch a single project by id, if it exists.
     pub fn get(&self, id: i64) -> Result<Option<Project>, ProjectStoreError> {
         let row = self
-            .conn
+            .lock()
             .query_row(
                 "SELECT id, path, last_opened FROM projects WHERE id = ?1",
                 params![id],

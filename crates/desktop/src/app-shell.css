@@ -90,6 +90,26 @@
   gap: 8px;
 }
 
+.titlebar-brand-link {
+  -webkit-app-region: no-drag;
+  text-decoration: none;
+  color: inherit;
+  padding: 4px 6px;
+  margin-inline: -6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.titlebar-brand-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.titlebar-brand-link:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 1px;
+}
+
 .titlebar-wordmark {
   font-size: 14px;
   font-weight: 700;

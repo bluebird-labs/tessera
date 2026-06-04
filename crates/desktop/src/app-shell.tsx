@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DiagramCanvas } from "./diagram-canvas";
 import { DEMO_DATA } from "./diagram-demo-data";
@@ -77,10 +78,10 @@ export function AppShell() {
       <header className="titlebar" data-tauri-drag-region>
         <div className="titlebar-left">
           {isMac && <WindowControls />}
-          <div className="titlebar-brand">
+          <Link to="/" className="titlebar-brand titlebar-brand-link" aria-label="Back to projects">
             <PrismLogo size={20} />
             <span className="titlebar-wordmark">Tessera</span>
-          </div>
+          </Link>
         </div>
         <div className="titlebar-right">
           <div className="avatar">SE</div>
