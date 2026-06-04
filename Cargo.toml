@@ -20,6 +20,7 @@ tauri = "2.8"
 tauri-build = "2.4"
 tessera-core = { path = "crates/core" }
 tessera-graph = { path = "crates/graph" }
+tessera-projects = { path = "crates/projects" }
 tessera-store = { path = "crates/store" }
 tessera-terminusdb = { path = "crates/terminusdb" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
