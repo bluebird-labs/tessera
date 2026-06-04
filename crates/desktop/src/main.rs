@@ -7,9 +7,9 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
-use tessera_projects::{Project, ProjectStore, ProjectStoreError};
 use tessera_projects::time::OffsetDateTime;
 use tessera_projects::time::format_description::well_known::Iso8601;
+use tessera_projects::{Project, ProjectStore, ProjectStoreError};
 
 #[tauri::command]
 const fn app_name() -> &'static str {
@@ -59,6 +59,17 @@ fn touch_project(store: State<'_, ProjectStore>, id: i64) -> Result<(), String> 
     store.touch(id).map_err(error_to_string)
 }
 
+#[tauri::command]
+fn get_project(store: State<'_, ProjectStore>, id: i64) -> Result<ProjectDto, String> {
+    store
+        .get(id)
+        .map(ProjectDto::from)
+        .map_err(|err| match err {
+            ProjectStoreError::NotFound(_) => "project not found".to_owned(),
+            other => other.to_string(),
+        })
+}
+
 fn error_to_string(err: ProjectStoreError) -> String {
     err.to_string()
 }
@@ -87,6 +98,7 @@ fn main() {
             add_project,
             remove_project,
             touch_project,
+            get_project,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Tessera desktop app");

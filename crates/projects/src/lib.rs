@@ -159,8 +159,10 @@ impl ProjectStore {
         Ok(())
     }
 
-    /// Fetch a single project by id, if it exists.
-    pub fn get(&self, id: i64) -> Result<Option<Project>, ProjectStoreError> {
+    /// Fetch a single project by id.
+    ///
+    /// Returns [`ProjectStoreError::NotFound`] if no row matches.
+    pub fn get(&self, id: i64) -> Result<Project, ProjectStoreError> {
         let row = self
             .lock()
             .query_row(
@@ -168,8 +170,9 @@ impl ProjectStore {
                 params![id],
                 row_to_project,
             )
-            .optional()?;
-        row.map(parse_project_row).transpose()
+            .optional()?
+            .ok_or(ProjectStoreError::NotFound(id))?;
+        parse_project_row(row)
     }
 }
 
@@ -310,6 +313,23 @@ mod tests {
     fn touch_missing_id_returns_not_found() {
         let store = store();
         let err = store.touch(999).unwrap_err();
+        assert!(matches!(err, ProjectStoreError::NotFound(999)));
+    }
+
+    #[test]
+    fn get_returns_inserted_row() {
+        let dir = tempdir().unwrap();
+        let store = store();
+        let added = store.add(dir.path()).unwrap();
+        let fetched = store.get(added.id).unwrap();
+        assert_eq!(fetched.id, added.id);
+        assert_eq!(fetched.path, added.path);
+    }
+
+    #[test]
+    fn get_missing_id_returns_not_found() {
+        let store = store();
+        let err = store.get(999).unwrap_err();
         assert!(matches!(err, ProjectStoreError::NotFound(999)));
     }
 
