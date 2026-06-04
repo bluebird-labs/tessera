@@ -17,7 +17,8 @@
         "height": 760,
         "minWidth": 800,
         "minHeight": 600,
-        "decorations": false
+        "decorations": false,
+        "acceptFirstMouse": true
       }
     ],
     "security": {
