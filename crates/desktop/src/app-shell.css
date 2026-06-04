@@ -2,7 +2,7 @@
 
 .shell {
   display: grid;
-  grid-template-rows: 44px 1fr 28px;
+  grid-template-rows: 44px 40px 1fr 28px;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
@@ -14,9 +14,9 @@
 /* ─── Title Bar ─────────────────────────────────────────────────────── */
 
 .titlebar {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   padding-inline: 12px;
   gap: 14px;
   background: rgba(14, 15, 26, 0.8);
@@ -96,11 +96,30 @@
   letter-spacing: -0.02em;
 }
 
-.titlebar-center {
+/* ─── Sub-toolbar ───────────────────────────────────────────────────── */
+
+.subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 14px;
+  gap: 14px;
+  background: rgba(14, 15, 26, 0.55);
+  border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.subbar-left {
   display: flex;
   align-items: center;
   gap: 8px;
-  justify-content: center;
+}
+
+.subbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .breadcrumb-segment {
@@ -180,7 +199,6 @@
   display: grid;
   place-items: center;
   box-shadow: 0 4px 12px rgba(255, 77, 140, 0.4);
-  -webkit-app-region: no-drag;
 }
 
 /* ─── Body Grid ─────────────────────────────────────────────────────── */

@@ -96,7 +96,15 @@ export function AppShell() {
             <span className="titlebar-wordmark">Tessera</span>
           </div>
         </div>
-        <div className="titlebar-center">
+        <div className="titlebar-right">
+          <div className="avatar">SE</div>
+          {!isMac && <WindowControls />}
+        </div>
+      </header>
+
+      {/* Sub-toolbar: breadcrumbs + search */}
+      <div className="subbar">
+        <div className="subbar-left">
           <button className="breadcrumb-segment breadcrumb-project">checkout-platform</button>
           <span className="breadcrumb-sep">›</span>
           <div className="breadcrumb-segment breadcrumb-active">
@@ -104,15 +112,13 @@ export function AppShell() {
             Mosaic · Checkout
           </div>
         </div>
-        <div className="titlebar-right">
+        <div className="subbar-right">
           <button className="search-button">
             <span className="search-kbd">⌘K</span>
             <span>Search</span>
           </button>
-          <div className="avatar">SE</div>
-          {!isMac && <WindowControls />}
         </div>
-      </header>
+      </div>
 
       {/* Body */}
       <div className="body">
