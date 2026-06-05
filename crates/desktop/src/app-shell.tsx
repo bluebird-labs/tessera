@@ -1,49 +1,8 @@
 import { useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DiagramCanvas } from "./diagram-canvas";
 import { DEMO_DATA } from "./diagram-demo-data";
+import { TitleBar } from "./title-bar";
 import "./app-shell.css";
-
-const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
-
-function windowAction(action: "close" | "minimize" | "toggleMaximize") {
-  if (!isTauri) return;
-  const w = getCurrentWindow();
-  switch (action) {
-    case "close": void w.close(); return;
-    case "minimize": void w.minimize(); return;
-    case "toggleMaximize": void w.toggleMaximize(); return;
-  }
-}
-
-function WindowControls() {
-  // On macOS, order is close, minimize, maximize (left-to-right). On Windows/Linux,
-  // the conventional order is minimize, maximize, close (left-to-right) — the close
-  // button is rightmost and gets a distinct hover treatment via CSS.
-  if (isMac) {
-    return (
-      <div className="traffic-lights traffic-lights-mac">
-        <button type="button" className="dot dot-close" aria-label="Close window" onClick={() => windowAction("close")} />
-        <button type="button" className="dot dot-minimize" aria-label="Minimize window" onClick={() => windowAction("minimize")} />
-        <button type="button" className="dot dot-maximize" aria-label="Toggle maximize window" onClick={() => windowAction("toggleMaximize")} />
-      </div>
-    );
-  }
-  return (
-    <div className="window-controls window-controls-winlinux">
-      <button type="button" className="win-control win-minimize" aria-label="Minimize window" onClick={() => windowAction("minimize")}>
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" strokeWidth="1" /></svg>
-      </button>
-      <button type="button" className="win-control win-maximize" aria-label="Toggle maximize window" onClick={() => windowAction("toggleMaximize")}>
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" /></svg>
-      </button>
-      <button type="button" className="win-control win-close" aria-label="Close window" onClick={() => windowAction("close")}>
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" strokeWidth="1" /></svg>
-      </button>
-    </div>
-  );
-}
 
 type View = "mosaic" | "cascade" | "contracts" | "domain" | "agents" | "history" | "settings";
 
@@ -57,36 +16,12 @@ const RAIL_ITEMS: { id: View; icon: string; label: string }[] = [
   { id: "settings",  icon: "✦", label: "Settings" },
 ];
 
-function PrismLogo({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32">
-      <rect x="2" y="2" width="12" height="12" rx="2" fill="#5b6bff" />
-      <rect x="18" y="2" width="12" height="12" rx="2" fill="#ff4d8c" />
-      <rect x="2" y="18" width="12" height="12" rx="2" fill="#22d3ee" />
-      <rect x="18" y="18" width="12" height="12" rx="2" fill="#a3e635" />
-    </svg>
-  );
-}
-
 export function AppShell() {
   const [activeView, setActiveView] = useState<View>("mosaic");
 
   return (
     <div className="shell">
-      {/* Title bar */}
-      <header className="titlebar" data-tauri-drag-region>
-        <div className="titlebar-left">
-          {isMac && <WindowControls />}
-          <div className="titlebar-brand">
-            <PrismLogo size={20} />
-            <span className="titlebar-wordmark">Tessera</span>
-          </div>
-        </div>
-        <div className="titlebar-right">
-          <div className="avatar">SE</div>
-          {!isMac && <WindowControls />}
-        </div>
-      </header>
+      <TitleBar />
 
       {/* Sub-toolbar: breadcrumbs + search */}
       <div className="subbar">
@@ -103,6 +38,7 @@ export function AppShell() {
             <span className="search-kbd">⌘K</span>
             <span>Search</span>
           </button>
+          <div className="avatar">SE</div>
         </div>
       </div>
 
