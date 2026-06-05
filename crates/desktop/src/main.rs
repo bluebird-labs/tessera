@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tessera_projects::time::OffsetDateTime;
 use tessera_projects::time::format_description::well_known::Iso8601;
 use tessera_projects::{Project, ProjectStore, ProjectStoreError};
@@ -59,6 +59,23 @@ fn touch_project(store: State<'_, ProjectStore>, id: i64) -> Result<(), String> 
     store.touch(id).map_err(error_to_string)
 }
 
+// Native folder picker. We bypass `tauri-plugin-dialog` here because its
+// `open(directory)` path posts the dialog through `run_on_main_thread` +
+// `std::thread::spawn` + `block_on`, which on macOS starves the WebView
+// compositor for ~500-800ms between click and first paint frame after the
+// IPC. Awaiting `rfd::AsyncFileDialog` directly on Tauri's async runtime
+// keeps the main thread free; `set_parent(&window)` triggers the
+// `beginSheetModalForWindow:` (sheet) presentation on macOS and is the
+// canonical lever for window-attached dialogs on Windows and Linux too.
+#[tauri::command]
+async fn pick_project_folder(window: WebviewWindow) -> Option<String> {
+    rfd::AsyncFileDialog::new()
+        .set_parent(&window)
+        .pick_folder()
+        .await
+        .map(|handle| handle.path().to_string_lossy().into_owned())
+}
+
 #[tauri::command]
 fn get_project(store: State<'_, ProjectStore>, id: i64) -> Result<ProjectDto, String> {
     store
@@ -86,7 +103,6 @@ fn project_store(app: &AppHandle) -> Result<ProjectStore, Box<dyn std::error::Er
 
 fn main() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let store = project_store(app.handle())?;
             app.manage(store);
@@ -99,6 +115,7 @@ fn main() {
             remove_project,
             touch_project,
             get_project,
+            pick_project_folder,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Tessera desktop app");

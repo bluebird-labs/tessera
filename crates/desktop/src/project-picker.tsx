@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { TitleBar } from "./title-bar";
 import "./project-picker.css";
 
@@ -62,11 +61,11 @@ export function ProjectPicker() {
     // Fire the dialog IPC before any React state work so the native modal
     // appears within one frame of the click. setError(null) below would
     // otherwise schedule a re-render that runs ahead of the IPC.
-    const dialog = openDialog({ directory: true, multiple: false });
+    const dialog = invoke<string | null>("pick_project_folder");
     setError(null);
     try {
       const selected = await dialog;
-      if (typeof selected !== "string") return;
+      if (selected === null) return;
       const dto = await invoke<ProjectDto>("add_project", { path: selected });
       navigate(`/project/${dto.id}`);
     } catch (err) {

@@ -9,9 +9,9 @@ publish = false
 tauri-build = { workspace = true }
 
 [dependencies]
+rfd = "0.16"
 serde = { workspace = true }
 tauri = { workspace = true }
-tauri-plugin-dialog = "2"
 tessera-core = { workspace = true }
 tessera-projects = { workspace = true }
 
