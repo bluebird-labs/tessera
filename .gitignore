@@ -4,6 +4,8 @@ node_modules/
 crates/desktop/dist/
 crates/desktop/gen/
 crates/desktop/node_modules/
+site/dist/
+site/node_modules/
 .idea/
 .claude/worktrees/
 .claude/**.local.json
