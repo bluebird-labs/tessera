@@ -55,13 +55,17 @@ export function ProjectPicker() {
   }, []);
 
   const onPickFolder = useCallback(async () => {
+    if (!isTauri) {
+      setError("Native folder picker is only available in the desktop app.");
+      return;
+    }
+    // Fire the dialog IPC before any React state work so the native modal
+    // appears within one frame of the click. setError(null) below would
+    // otherwise schedule a re-render that runs ahead of the IPC.
+    const dialog = openDialog({ directory: true, multiple: false });
     setError(null);
     try {
-      if (!isTauri) {
-        setError("Native folder picker is only available in the desktop app.");
-        return;
-      }
-      const selected = await openDialog({ directory: true, multiple: false });
+      const selected = await dialog;
       if (typeof selected !== "string") return;
       const dto = await invoke<ProjectDto>("add_project", { path: selected });
       navigate(`/project/${dto.id}`);
