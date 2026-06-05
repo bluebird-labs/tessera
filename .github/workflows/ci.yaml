@@ -101,6 +101,24 @@ jobs:
             exit 1
           fi
 
+  site:
+    name: Site build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.1.2"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install site dependencies
+        run: pnpm --filter @tessera/site install --frozen-lockfile
+      - name: Build site
+        run: pnpm --filter @tessera/site build
+
   desktop:
     name: Desktop build
     runs-on: ubuntu-latest

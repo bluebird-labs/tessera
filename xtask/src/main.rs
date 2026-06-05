@@ -20,20 +20,22 @@ fn main() -> ExitCode {
 
 fn run() -> Result<TaskStatus, String> {
     let mut args = env::args_os().skip(1);
-    let task = args
-        .next()
-        .ok_or_else(|| "usage: cargo xtask <cli|desktop|desktop-build|check> [args]".to_owned())?;
+    let task = args.next().ok_or_else(|| {
+        "usage: cargo xtask <cli|desktop|desktop-build|site|site-build|check> [args]".to_owned()
+    })?;
 
     match task.to_string_lossy().as_ref() {
         "cli" => cargo_run_cli(strip_separator(args.collect())),
-        "desktop" => pnpm(["tauri", "dev"]),
+        "desktop" => pnpm("crates/desktop", ["tauri", "dev"]),
         "desktop-build" => {
-            let frontend = pnpm(["build"])?;
+            let frontend = pnpm("crates/desktop", ["build"])?;
             if !frontend.success {
                 return Ok(frontend);
             }
             cargo(["build", "-p", "tessera-desktop"])
         }
+        "site" => pnpm("site", ["dev"]),
+        "site-build" => pnpm("site", ["build"]),
         "check" => check(),
         other => Err(format!("unknown task `{other}`")),
     }
@@ -44,8 +46,9 @@ fn check() -> Result<TaskStatus, String> {
         cargo(["fmt", "--all", "--check"])?,
         cargo(["clippy", "--workspace", "--all-targets"])?,
         cargo(["test", "-p", "tessera-cli"])?,
-        pnpm(["build"])?,
+        pnpm("crates/desktop", ["build"])?,
         cargo(["build", "-p", "tessera-desktop"])?,
+        pnpm("site", ["build"])?,
     ] {
         if !status.success {
             return Ok(status);
@@ -67,9 +70,9 @@ fn cargo<const N: usize>(args: [&str; N]) -> Result<TaskStatus, String> {
     run_command(&mut command)
 }
 
-fn pnpm<const N: usize>(args: [&str; N]) -> Result<TaskStatus, String> {
+fn pnpm<const N: usize>(dir: &str, args: [&str; N]) -> Result<TaskStatus, String> {
     let mut command = Command::new("corepack");
-    command.args(["pnpm", "--dir", "crates/desktop"]).args(args);
+    command.args(["pnpm", "--dir", dir]).args(args);
     command.env("CI", "true");
     run_command(&mut command)
 }
