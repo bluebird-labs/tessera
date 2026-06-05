@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import parchmentLogo from "./assets/tessera-logo-parchment.svg";
+import { TitleBar } from "./title-bar";
 import "./project-screen.css";
 
 type ProjectDto = {
@@ -60,11 +60,7 @@ export function ProjectScreen() {
 
   return (
     <div className="project-shell">
-      <header className="project-titlebar" data-tauri-drag-region>
-        <Link to="/" className="project-logo-link" aria-label="Back to projects">
-          <img className="project-logo" src={parchmentLogo} alt="" />
-        </Link>
-      </header>
+      <TitleBar />
 
       <main className="project-body">
         {state.status === "ready" && <ProjectTile project={state.project} />}

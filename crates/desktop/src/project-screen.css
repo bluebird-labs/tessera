@@ -9,38 +9,6 @@
   font-family: var(--font-sans);
 }
 
-.project-titlebar {
-  display: flex;
-  align-items: center;
-  padding-inline: 14px;
-  gap: 14px;
-  background: rgba(14, 15, 26, 0.8);
-  border-bottom: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  -webkit-app-region: drag;
-}
-
-.project-logo-link {
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  -webkit-app-region: no-drag;
-  cursor: pointer;
-  opacity: 0.9;
-  transition: opacity 120ms ease;
-}
-
-.project-logo-link:hover {
-  opacity: 1;
-}
-
-.project-logo {
-  height: 20px;
-  width: auto;
-  display: block;
-}
-
 .project-body {
   display: flex;
   flex-direction: column;

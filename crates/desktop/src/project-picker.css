@@ -9,30 +9,6 @@
   font-family: var(--font-sans);
 }
 
-.picker-titlebar {
-  display: flex;
-  align-items: center;
-  padding-inline: 14px;
-  gap: 14px;
-  background: rgba(14, 15, 26, 0.8);
-  border-bottom: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  -webkit-app-region: drag;
-}
-
-.picker-titlebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.picker-wordmark {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
 .picker-body {
   position: relative;
   display: grid;
