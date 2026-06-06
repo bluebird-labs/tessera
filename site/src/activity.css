@@ -1,0 +1,301 @@
+/* ============================================================================
+   Tessera · "More is less" activity-grid visual
+   A GitHub-style contribution graph, re-skinned to the Prism dark theme, whose
+   lit cells spell TESSERA. Lime intensity scale stands in for GitHub green.
+   Imported by activity.tsx; relies on the design tokens in styles.css.
+   ========================================================================== */
+
+.actcard {
+  /* Fluid cell size: the 53-column grid is fixed-width, so size each cell off
+     the viewport to guarantee the whole card fits its container (caps at 15px
+     on wide screens, never shrinks below 7px before the mobile rules kick in). */
+  --cell: clamp(7px, calc((100vw - 330px) / 53), 15px);
+  --cgap: 3px;
+  --days-w: 30px;
+  --act-rgb: 163, 230, 53;
+
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--radius-6);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--elev-3);
+  padding: clamp(18px, 2.2vw, 28px);
+}
+
+/* ── header row ─────────────────────────────────────────────────────────── */
+.act-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.act-hd .count {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: clamp(18px, 1.8vw, 23px);
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+.act-hd .count b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.act-hd .settings {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-mute);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.act-hd .settings svg { width: 9px; height: 6px; opacity: 0.7; }
+
+/* ── calendar ───────────────────────────────────────────────────────────── */
+.cal { display: flex; flex-direction: column; gap: 7px; }
+
+.cal-months {
+  margin-left: calc(var(--days-w) + 8px);
+  display: grid;
+  grid-template-columns: repeat(53, var(--cell));
+  gap: var(--cgap);
+  height: 14px;
+}
+.cal-months span {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+.cal-body { display: flex; gap: 8px; align-items: flex-start; }
+
+.cal-days {
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  gap: var(--cgap);
+  width: var(--days-w);
+}
+.cal-days span {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-mute);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* ── the grid of cells ──────────────────────────────────────────────────── */
+.cgrid {
+  display: grid;
+  grid-template-columns: repeat(53, var(--cell));
+  grid-template-rows: repeat(7, var(--cell));
+  gap: var(--cgap);
+}
+.cell {
+  border-radius: calc(var(--cell) * 0.22);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  opacity: 0;                 /* hidden until the sweep reaches it */
+  transform: scale(0.32);
+}
+.cell.lv1 { background: rgba(var(--act-rgb), 0.17); box-shadow: none; }
+.cell.lv2 { background: rgba(var(--act-rgb), 0.34); box-shadow: none; }
+.cell.lv3 { background: rgba(var(--act-rgb), 0.62); box-shadow: none; }
+.cell.lv4 { background: var(--c-bright); box-shadow: none; }
+
+/* Revealed end-state = the base once built. This is what shows in reduced-motion,
+   print, and any context where time-based motion doesn't run. The entrance
+   animation below only adds the sweep on top of an already-correct end-state. */
+.cgrid.built .cell { opacity: 1; transform: none; }
+.cgrid.built .cell.lv4 { box-shadow: 0 0 calc(var(--cell) * 0.6) rgba(var(--act-rgb), 0.55); }
+.cgrid.built .cell.lv3 { box-shadow: 0 0 calc(var(--cell) * 0.32) rgba(var(--act-rgb), 0.32); }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* sweep each cell in from hidden, column by column — delay set inline via --d */
+  .cgrid.built .cell {
+    animation: actPop 0.5s var(--ease) backwards;
+    animation-delay: var(--d, 0ms);
+  }
+  .cgrid.built .cell.lv4 {
+    animation-name: actPopBright;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  /* optional idle shimmer — runs after each letter cell has popped in */
+  .cgrid.shimmer.built .cell.lv4 {
+    animation: actPopBright 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards,
+               actBreath 3.8s ease-in-out infinite;
+    animation-delay: var(--d, 0ms), calc(var(--d, 0ms) + 650ms);
+  }
+}
+
+@keyframes actPop {
+  from { opacity: 0; transform: scale(0.32); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes actPopBright {
+  0%   { opacity: 0; transform: scale(0.2); }
+  72%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes actBreath {
+  0%, 100% { box-shadow: 0 0 calc(var(--cell) * 0.5) rgba(var(--act-rgb), 0.45); filter: brightness(1); }
+  50%      { box-shadow: 0 0 calc(var(--cell) * 0.95) rgba(var(--act-rgb), 0.8); filter: brightness(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cgrid.built .cell { animation: none; }
+}
+
+/* once the sweep has finished, drop the entrance animation so the revealed
+   end-state is the plain computed style (robust for static captures / export) */
+.cgrid.done .cell { animation: none; }
+
+/* ── footer row ─────────────────────────────────────────────────────────── */
+.act-ft {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.act-ft .learn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-mute);
+  text-decoration: none;
+}
+.act-ft .learn:hover { color: var(--text-dim); }
+.act-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-mute);
+}
+.act-legend .scale { display: flex; gap: var(--cgap); }
+.act-legend .lc {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: calc(var(--cell) * 0.22);
+}
+.act-legend .lc.lv0 { background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); }
+.act-legend .lc.lv1 { background: rgba(var(--act-rgb), 0.17); }
+.act-legend .lc.lv2 { background: rgba(var(--act-rgb), 0.34); }
+.act-legend .lc.lv3 { background: rgba(var(--act-rgb), 0.62); }
+.act-legend .lc.lv4 { background: var(--c-bright); }
+
+/* ── responsive: tighten chrome + force small cells on phones ────────────── */
+@media (max-width: 720px) {
+  .actcard { --cell: 8px; --cgap: 2px; --days-w: 22px; padding: 16px; }
+  .act-hd { margin-bottom: 16px; }
+  .cal-days span, .cal-months span { font-size: 9px; }
+}
+@media (max-width: 520px) {
+  .actcard { --cell: 6px; --cgap: 1.5px; --days-w: 0px; }
+  .cal-days { display: none; }
+  .cal-months { margin-left: 0; }
+}
+
+/* ============================================================================
+   BEFORE / AFTER VERTICAL WIPE
+   Two stacked grid layers (clean + decayed) clipped along a vertical edge at
+   position --split. A JS state machine sweeps --split left→right while a violet
+   scan bar rides the boundary; on each pass the underlying activity flips. The
+   decay-hold freezes the wipe's final frame so nothing snaps at the handoff.
+   ========================================================================== */
+@property --split { syntax: "<number>"; inherits: true; initial-value: 0; }
+
+/* A JS state machine drives the stages; CSS owns the smooth transitions.
+   STAGES:  intro (base reveals) → hold → wipe (bar sweeps the new activity in)
+   → decay-hold (frozen wipe end) → snap back to clean → hold → wipe … The
+   classes is-intro / is-wipe / is-decayed switch which transition is armed;
+   nothing snaps because each stage hands off on an identical frame. */
+.actcard.split { --split: -0.1; --band: 0.06; --wipe: 2.6s; }
+
+.cgrid-split { position: relative; }
+.cgrid-split .split-layer.base { position: relative; z-index: 1; }
+.cgrid-split .split-layer.incoming { position: absolute; inset: 0; z-index: 2; }
+
+/* Tile flare near the moving (vertical) boundary — each tile catches the light
+   as the wipe edge passes, scaled by --glow (a triangular falloff of the
+   tile's signed horizontal distance --dist to the boundary at --split). */
+.split-layer .cell {
+  opacity: 1; animation: none;
+  --dist: calc(var(--cx) - var(--split));
+  --gd1: clamp(0, calc((var(--band) - var(--dist)) / var(--band)), 1);
+  --gd2: clamp(0, calc((var(--band) + var(--dist)) / var(--band)), 1);
+  --glow: calc(var(--gd1) * var(--gd2));
+  /* gentle lift (no white blow-out) + a VIOLET bloom matching the bar, so the
+     blast reads as the violet scan line's light rather than a white flash. */
+  filter: brightness(calc(1 + var(--glow) * 0.45));
+  transform: scale(calc(1 + var(--glow) * 0.16));
+  box-shadow: 0 0 calc(var(--cell) * var(--glow) * 1.5) rgba(168, 85, 247, calc(var(--glow) * 0.9));
+}
+.split-layer .cell.lv4 {
+  box-shadow: 0 0 calc(var(--cell) * 0.5) rgba(var(--act-rgb), 0.5),
+              0 0 calc(var(--cell) * var(--glow) * 1.7) rgba(168, 85, 247, calc(var(--glow) * 0.95));
+}
+.split-layer .cell.lv3 {
+  box-shadow: 0 0 calc(var(--cell) * 0.28) rgba(var(--act-rgb), 0.3),
+              0 0 calc(var(--cell) * var(--glow) * 1.35) rgba(168, 85, 247, calc(var(--glow) * 0.8));
+}
+
+/* Incoming layer clipped to the swept (left) region — a vertical reveal edge.
+   At --split:0 it has zero width, so during holds it is simply invisible. */
+.split-layer.incoming {
+  clip-path: polygon(0 0, calc(var(--split) * 100%) 0,
+                     calc(var(--split) * 100%) 100%, 0 100%);
+  opacity: 1;
+}
+
+/* Vertical bar riding the boundary; hidden by default, shown only during wipe.
+   Tessera violet (a brand accent) — reads as a deliberate scan line over the
+   lime field rather than a generic white flash. */
+.split-bar {
+  position: absolute; top: 50%; left: calc(var(--split) * 100%);
+  width: 2px; height: 116%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, rgba(168,85,247,0) 0%,
+              rgba(192,132,252,0.95) 14%, rgba(192,132,252,0.95) 86%, rgba(168,85,247,0) 100%);
+  box-shadow: 0 0 7px rgba(168,85,247,0.65), 0 0 16px rgba(168,85,247,0.35);
+  border-radius: 2px; z-index: 4; pointer-events: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* STAGE intro — base reveals column by column (reusing the entrance pop). */
+  .actcard.split.is-intro .split-layer.base .cell {
+    animation: actPop 0.5s var(--ease) backwards; animation-delay: var(--d);
+  }
+  .actcard.split.is-intro .split-layer.base .cell.lv4 {
+    animation-name: actPopBright; animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* STAGE wipe — boundary glides L→R (the bar tracks it); bar fades in then out.
+     Rests just off-grid (-0.1 → 1.1) so no column flares while held. */
+  .actcard.split.is-wipe { --split: 1.1; transition: --split var(--wipe) cubic-bezier(0.4, 0, 0.2, 1); }
+  .actcard.split.is-wipe .split-bar { animation: actBarFade var(--wipe) linear forwards; }
+
+  /* STAGE decay-hold — freeze the wipe's last frame: --split pinned past the
+     right edge so both layers stay present (their glow stacks just like the end
+     of the wipe) and the bar is gone. Nothing shifts at the wipe→hold handoff. */
+  .actcard.split.is-decayed { --split: 1.1; }
+}
+
+@keyframes actBarFade {
+  0% { opacity: 0; } 10% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; }
+}

@@ -1,51 +1,43 @@
-// shift.tsx — "The shift" slice. Eyebrow + headline, then two mirrored blocks
-// that oppose definition against entropy using the locked mosaic visual.
+// shift.tsx — "More is less" slice. Eyebrow + headline, then the GitHub-activity
+// visual (a contribution graph that reveals TESSERA, then a violet swipe floods
+// it with hot, busy green until the word dissolves — activity up, design down),
+// and the before/after argument in two columns beneath it: the trust an "LGTM"
+// used to carry, and the judgment an agent doesn't have.
 import { Reveal } from "./mosaic";
-import { TMosaic } from "./tmosaic";
+import { ActivityGrid } from "./activity";
 
 export function Shift() {
   return (
     <section className="section shift" id="shift">
       <div className="shell">
         <Reveal className="shift-head">
-          <span className="eyebrow">The shift</span>
+          <span className="eyebrow">More is less</span>
           <h2>Looks good to me.</h2>
         </Reveal>
 
-        <div className="shift-blocks">
-          <Reveal as="div" className="shift-block">
-            <div className="sb-text">
-              <p>
-                "Looks good to me" was never really about the diff. It was trust in the
-                person who wrote it: that they had held the whole system in their head,
-                weighed the architecture and the boundaries, and had a feel for where the
-                code needed to go next. You approved because you trusted their judgment,
-                not because you re-derived every decision yourself.
-              </p>
-            </div>
-            <div className="sb-visual">
-              <div className="sb-stage tmosaic-stage">
-                <TMosaic variant="proper" erosion={0.59} />
-              </div>
-            </div>
+        <div className="shift-grid">
+          <ActivityGrid noise={24} speed={18} swipeSecs={2.6} />
+        </div>
+
+        <div className="shift-cols">
+          <Reveal as="div" className="shift-col">
+            <span className="shift-col-tag">Then</span>
+            <p>
+              "LGTM" was never about the diff. It was trust in the person who wrote it:
+              that they held the whole system in their head, weighed the architecture and
+              the boundaries, and knew where the code should go next. You approved their
+              judgment, not every line.
+            </p>
           </Reveal>
 
-          <Reveal as="div" className="shift-block mirror">
-            <div className="sb-text">
-              <p>
-                The agent has no such judgment to trust. It has no stake in the system a
-                year from now, no instinct for how it should evolve, no sense of which
-                shortcuts will quietly cost you. The code compiles, the diff reads clean,
-                and "looks good to me" gets typed in seconds, over decisions no one
-                actually made. The flaws are not the kind a glance can catch. They surface
-                later, one shortcut at a time, long after anyone could have caught them.
-              </p>
-            </div>
-            <div className="sb-visual">
-              <div className="sb-stage tmosaic-stage">
-                <TMosaic variant="ai" erosion={0.59} />
-              </div>
-            </div>
+          <Reveal as="div" className="shift-col">
+            <span className="shift-col-tag">Now</span>
+            <p>
+              The agent has no stake in the system a year from now. It writes the change,
+              the code compiles, the diff reads clean, and "looks good to me" gets typed in
+              seconds. Each change is reviewed on its own. The architecture they add up to
+              is not.
+            </p>
           </Reveal>
         </div>
       </div>

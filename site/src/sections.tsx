@@ -4,7 +4,7 @@ import { Reveal, Mark, Mosaic, Glyph } from "./mosaic";
 
 /* ───────────────────────── NAV ───────────────────────── */
 const NAV_LINKS = [
-  { href: "#shift", label: "The shift" },
+  { href: "#shift", label: "More is less" },
   { href: "#beliefs", label: "Beliefs" },
   { href: "#isnot", label: "What it is" },
   { href: "#system", label: "System" },

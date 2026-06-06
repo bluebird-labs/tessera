@@ -84,7 +84,7 @@ const FOOT = [
   {
     h: "Product",
     links: [
-      ["The shift", "#shift"],
+      ["More is less", "#shift"],
       ["How it works", "#system"],
       ["What it is", "#isnot"],
       ["Beliefs", "#beliefs"],
