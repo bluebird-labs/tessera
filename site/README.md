@@ -31,12 +31,17 @@ Git**, pick this repo and set:
 | Setting | Value |
 | --- | --- |
 | Framework preset | None / Vite |
-| Build command | `pnpm install --frozen-lockfile && pnpm --filter @tessera/site build` |
+| Production branch | `main` |
+| Build command | `pnpm install --filter '@tessera/site...' --frozen-lockfile && pnpm --filter @tessera/site build` |
 | Build output directory | `site/dist` |
 | Root directory | *(repo root — leave blank)* |
 
-Cloudflare auto-detects pnpm from `pnpm-lock.yaml`. If you want to pin Node, add
-a `NODE_VERSION` environment variable (e.g. `22`).
+The filtered install skips the `crates/desktop` (Tauri CLI) and `extractors/ts`
+workspaces so CF only fetches the site's own dep tree.
+
+Cloudflare auto-detects pnpm from `pnpm-lock.yaml` and respects the
+`packageManager` field in the root `package.json`. Pin Node to match CI by
+adding a `NODE_VERSION` environment variable set to `22` (Production + Preview).
 
 ### Analytics
 After the first deploy, open the Pages project → **Metrics → Web Analytics →
