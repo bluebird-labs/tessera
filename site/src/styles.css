@@ -337,56 +337,33 @@ h1,h2,h3 { font-family:var(--font-sans); font-weight:700; margin:0; }
 }
 
 /* ============================================================================
-   THE SHIFT — a commit is no longer a commitment
-   Two mirrored blocks that oppose order against entropy: deliberate structure
-   (distinct squares, clean arrows) versus the same palette shattered into a
-   dense mosaic of fragments. Both visuals are static.
+   MORE IS LESS — a commit is no longer a commitment
+   The GitHub-activity visual (full width), then the before/after argument in
+   two columns beneath it. The grid itself is styled in activity.css.
    ========================================================================== */
 .shift-head { max-width:760px; margin:0 auto; text-align:center; }
 .shift-head .eyebrow { justify-content:center; }
 .shift-head h2 { font-size:var(--h2); line-height:1.03; letter-spacing:-0.03em; margin:18px 0 0; }
 
-.shift-blocks {
-  max-width:1060px; margin:clamp(44px,5.5vw,80px) auto 0;
-  display:flex; flex-direction:column; gap:clamp(56px,8vw,108px);
-}
-.shift-block {
-  display:grid; grid-template-columns:1fr 1fr; align-items:center;
-  gap:clamp(34px,5vw,72px);
-}
-.sb-text { max-width:62ch; }
-.shift-block.mirror .sb-text { justify-self:end; }
-.sb-text p { color:var(--text-dim); font-size:var(--lead); line-height:1.68; margin:0; }
-.sb-text p strong { color:var(--text); font-weight:600; }
+.shift-grid { margin:clamp(40px,5vw,72px) auto 0; display:flex; justify-content:center; }
 
-.sb-visual { display:flex; align-items:center; justify-content:center; }
-.shift-block.mirror .sb-visual { order:-1; }   /* mirror: visual to the left */
-
-.sb-stage {
-  width:100%; max-width:364px; aspect-ratio:1/1;
-  border:1px solid var(--line); border-radius:var(--radius-6);
-  background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.012));
-  backdrop-filter:blur(20px); box-shadow:var(--elev-3);
-  display:grid; place-items:center; overflow:hidden;
+.shift-cols {
+  max-width:980px; margin:clamp(36px,4.4vw,64px) auto 0;
+  display:grid; grid-template-columns:1fr 1fr; gap:clamp(34px,5vw,72px);
 }
-.sb-stage.order   { padding:clamp(26px,7%,42px); }
-.sb-stage.shatter { padding:12px; }
-.sb-stage.tmosaic-stage { padding:clamp(16px,5%,26px); }
-.sb-stage.order svg { width:100%; height:100%; display:block; overflow:visible; }
-.tmosaic { width:100%; height:100%; display:grid; place-items:center; }
-.tmosaic canvas { max-width:100%; }
-
-/* Visual B: the shattered mosaic. Four colour regions, pulverised. */
-.mosaic-shatter {
-  width:100%; height:100%;
-  display:grid;
-  grid-template-columns:repeat(14, 1fr);
-  grid-template-rows:repeat(14, 1fr);
-  gap:2px;
+.shift-col { position:relative; }
+.shift-col-tag {
+  display:inline-block; margin-bottom:14px;
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  letter-spacing:1.5px; text-transform:uppercase; color:var(--lime);
 }
-.ms-tile { border-radius:2.5px; }
-.ms-tile.glyph { display:grid; place-items:center; }
-.ms-tile svg { width:100%; height:100%; display:block; }
+.shift-col:nth-child(2) .shift-col-tag { color:var(--violet-hi); }
+.shift-col p { color:var(--text-dim); font-size:var(--lead); line-height:1.68; margin:0; }
+.shift-col p strong { color:var(--text); font-weight:600; }
+
+@media (max-width:920px) {
+  .shift-cols { grid-template-columns:1fr; gap:clamp(26px,5vw,40px); max-width:62ch; }
+}
 
 /* ============================================================================
    MANIFESTO
@@ -594,11 +571,6 @@ h1,h2,h3 { font-family:var(--font-sans); font-weight:700; margin:0; }
   .hero h1, .hero-lead { max-width:18ch; }
   .hero-lead { max-width:54ch; }
   .hero-actions, .hero-status { justify-content:center; }
-  .shift-block { grid-template-columns:1fr; gap:clamp(28px,5vw,40px); justify-items:center; }
-  .shift-block .sb-text { max-width:60ch; order:2; }
-  .shift-block .sb-visual { order:1; }
-  .shift-block.mirror .sb-visual { order:1; }
-  .sb-stage { max-width:320px; }
   .brand-grid { grid-template-columns:repeat(6,1fr); }
   .bcard.palette,.bcard.type { grid-column:span 6; }
   .bcard.marks,.bcard.nodes { grid-column:span 6; }
