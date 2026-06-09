@@ -5,6 +5,8 @@
 
 .ws-surface {
   position: relative;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   background:
     radial-gradient(circle at center, var(--ws-surface-dot) 1px, transparent 1.4px)
