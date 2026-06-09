@@ -82,7 +82,10 @@ export interface DiagramTheme {
   readonly coral: string;
   readonly indigo: string;
   readonly surface2: string;
+  readonly surface3: string;
   readonly line: string;
+  readonly lineHi: string;
+  readonly nodeStroke: string;
   readonly fontSans: string;
   readonly fontMono: string;
 }

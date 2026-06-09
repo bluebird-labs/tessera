@@ -56,7 +56,7 @@ function renderNodeShape(
           .attr("height", s)
           .attr("rx", Math.max(2, d.r * 0.16))
           .attr("fill", `url(#node-grad-${d.type})`)
-          .attr("stroke", "rgba(255,255,255,0.42)")
+          .attr("stroke", theme.nodeStroke)
           .attr("stroke-width", 1.2)
         if (tier === "focus") {
           sel.select("rect").style("filter", `drop-shadow(0 6px 20px ${style.glow}b3)`);
@@ -73,7 +73,7 @@ function renderNodeShape(
           .attr("height", h)
           .attr("rx", d.r * 0.7)
           .attr("fill", `url(#node-grad-${d.type})`)
-          .attr("stroke", "rgba(255,255,255,0.12)")
+          .attr("stroke", theme.lineHi)
           .attr("stroke-width", 1.2);
         break;
       }
@@ -91,7 +91,7 @@ function renderNodeShape(
           .attr("height", ms)
           .attr("rx", 3)
           .attr("fill", `url(#node-grad-${d.type})`)
-          .attr("stroke", "rgba(255,255,255,0.45)")
+          .attr("stroke", theme.nodeStroke)
           .attr("stroke-width", 1.2);
         sel.append("circle")
           .attr("r", d.r * 0.32)
@@ -102,8 +102,8 @@ function renderNodeShape(
       default: {
         sel.append("circle")
           .attr("r", d.r)
-          .attr("fill", "#222640")
-          .attr("stroke", "rgba(255,255,255,0.12)")
+          .attr("fill", theme.surface3)
+          .attr("stroke", theme.lineHi)
           .attr("stroke-width", 1.5);
         break;
       }

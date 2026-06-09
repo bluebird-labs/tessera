@@ -74,7 +74,7 @@ export function appendDefs(svg: SVGSVGElement, theme: DiagramTheme): void {
     .attr("orient", "auto-start-reverse");
   arrow.append("path")
     .attr("d", "M 0,0 L 10,5 L 0,10 z")
-    .attr("fill", "rgba(255,255,255,0.55)");
+    .attr("fill", theme.tiers.focus.edgeStroke);
 
   const arrowMuted = defs.append("marker")
     .attr("id", "edge-arrow-muted")
@@ -84,5 +84,5 @@ export function appendDefs(svg: SVGSVGElement, theme: DiagramTheme): void {
     .attr("orient", "auto-start-reverse");
   arrowMuted.append("path")
     .attr("d", "M 0,0 L 10,5 L 0,10 z")
-    .attr("fill", "rgba(255,255,255,0.16)");
+    .attr("fill", theme.tiers.mid.edgeStroke);
 }

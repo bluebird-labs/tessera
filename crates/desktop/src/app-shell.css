@@ -176,7 +176,7 @@
 /* ─── Outliner ──────────────────────────────────────────────────────── */
 
 .outliner {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--surface-1);
   border-right: 1px solid var(--line);
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -410,7 +410,7 @@
 /* ─── Inspector ─────────────────────────────────────────────────────── */
 
 .inspector {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--surface-1);
   border-left: 1px solid var(--line);
   display: grid;
   grid-template-rows: auto auto 1fr auto;
