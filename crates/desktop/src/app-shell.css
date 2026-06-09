@@ -155,6 +155,19 @@
   border-radius: 8px;
 }
 
+.rail-item-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rail-item-disabled:hover {
+  color: var(--text-mute);
+}
+
+.rail-grow {
+  flex: 1;
+}
+
 .rail-icon {
   width: 32px;
   height: 32px;
@@ -405,6 +418,49 @@
 .stage-canvas {
   position: relative;
   overflow: hidden;
+}
+
+.viz-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.stage-empty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.stage-empty-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+
+.inspector-prop {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.inspector-prop-key {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-mute);
+  letter-spacing: 0.08em;
+}
+
+.inspector-prop-val {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
 }
 
 /* ─── Inspector ─────────────────────────────────────────────────────── */

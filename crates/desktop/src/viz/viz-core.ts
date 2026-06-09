@@ -11,9 +11,7 @@
  *   reader) so a theme toggle propagates here on `invalidateTokens()` +
  *   `invalidateVizCore()`.
  * - Numerical tier params come from the SPEC table in DESIGN_SYSTEM.md §6.2
- *   (opacity 1/0.62/0.20, scale 1/0.82/0.6, blur 0/0.5/1.5). The legacy
- *   `diagram-theme.ts` shipped slightly different numbers for visual
- *   parity — we follow the spec here, not the legacy mid-rollout numbers.
+ *   (opacity 1/0.62/0.20, scale 1/0.82/0.6, blur 0/0.5/1.5).
  */
 
 import { select, type Selection } from "d3-selection";
