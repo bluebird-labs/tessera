@@ -40,6 +40,11 @@ export type NodeKind =
 
 export type Tier = "focus" | "mid" | "ghost";
 
+/** Above this filtered-node count, projections flip the app-store
+ *  `largeGraph` flag and the Canvas panel marks the SVG host
+ *  `data-3d="true"` (camera tilt stub — see PR7). */
+export const LARGE_GRAPH_THRESHOLD = 250;
+
 export type NodeShape =
   | "tile"
   | "circle"
@@ -118,7 +123,7 @@ function whiteAlpha(a: number): string {
 const TILE_STROKE_WHITE = whiteAlpha(0.42);
 const DECISION_STROKE_WHITE = whiteAlpha(0.5);
 
-// ─── tier style (from SPEC §6.2, not from TIER_PARAMS in diagram-theme.ts) ──
+// ─── tier style (from SPEC §6.2) ──
 
 export const TIER_STYLE: Record<Tier, TierStyle> = Object.freeze({
   focus: { opacity: 1, scale: 1, label: 1, blur: 0 },

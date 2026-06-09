@@ -19,6 +19,7 @@ import { zoomIdentity } from "d3-zoom";
 
 import {
   HUE,
+  LARGE_GRAPH_THRESHOLD,
   attachZoom,
   computeTiers,
   injectDefs,
@@ -27,8 +28,15 @@ import {
   type HueName,
 } from "./viz-core";
 import { ATLAS, type ErdAccent, type ErdCardinality, type ErdTable } from "./data";
+import { makeSpring, type SpringHandle } from "./motion";
+import type {
+  InspectorModel,
+  OutlinerGroup,
+  ProjectionMeta,
+} from "./projection";
 import {
   select as selectAction,
+  setLargeGraph,
   togglePin,
   useLayout,
   usePinned,
@@ -220,6 +228,9 @@ export const ViewData = forwardRef<ViewHandle, { width: number; height: number }
         (adjacency[r.from] ??= []).push(r.to);
         (adjacency[r.to] ??= []).push(r.from);
       }
+      setLargeGraph(tables.length > LARGE_GRAPH_THRESHOLD);
+
+      const cardSprings = new Map<string, SpringHandle>();
 
       const root = svg.append("g").attr("class", "erd-root") as D3Selection<SVGGElement>;
       const edgeLayer = root.append("g").attr("class", "rel-layer");
@@ -453,9 +464,19 @@ export const ViewData = forwardRef<ViewHandle, { width: number; height: number }
         for (const p of pinnedSet) {
           if (tierMap[p]) tierMap[p] = "focus";
         }
-        card.transition().duration(320).style("opacity", (t) => {
+        card.each(function (t) {
           const s = tierMap[t.id];
-          return s === "ghost" ? 0.28 : s === "mid" ? 0.7 : 1;
+          const target = s === "ghost" ? 0.28 : s === "mid" ? 0.7 : 1;
+          const el = this;
+          const from = Number.parseFloat(el.style.opacity || "") || 1;
+          let spring = cardSprings.get(t.id);
+          if (!spring) {
+            spring = makeSpring();
+            cardSprings.set(t.id, spring);
+          }
+          spring.to(from, target, (v) => {
+            el.style.opacity = String(v);
+          });
         });
         card
           .select<SVGRectElement>(".sel-ring")
@@ -507,6 +528,8 @@ export const ViewData = forwardRef<ViewHandle, { width: number; height: number }
       };
 
       return () => {
+        for (const s of cardSprings.values()) s.stop();
+        cardSprings.clear();
         tiersRef.current = null;
         apiRef.current = null;
       };
@@ -519,3 +542,114 @@ export const ViewData = forwardRef<ViewHandle, { width: number; height: number }
     return <svg ref={svgRef} width={width} height={height} className="viz-svg" />;
   },
 );
+
+// ── projection meta ──────────────────────────────────────────────────────
+
+const DATA_TABLE_INDEX = new Map(ATLAS.data.tables.map((t) => [t.id, t]));
+
+export function viewDataMeta(): ProjectionMeta {
+  const D = ATLAS.data;
+  return {
+    id: "data",
+    label: "Data",
+    eyebrow: "Schema",
+    title: "Atlas Stays",
+    stageTitle: "Data · ERD",
+    stageMeta: `${D.tables.length} tables · ${D.rels.length} relations · <span style="color:var(--coral)">1 drift</span>`,
+    layouts: [
+      { id: "spatial", label: "spatial" },
+      { id: "grid", label: "grid" },
+    ],
+    defaultLayout: "spatial",
+    filters: [],
+    legendTitle: "Field markers",
+    legend: [
+      { glyph: '<span style="color:var(--amber)">◆</span>', label: "Primary key" },
+      { glyph: '<span style="color:var(--cyan)">◇</span>', label: "Foreign key" },
+      { glyph: '<span style="color:var(--indigo)">▁</span>', label: "Indexed column" },
+      { glyph: "─<", label: "1 → many" },
+      { glyph: "─o", label: "zero-or-one" },
+    ],
+  };
+}
+
+export function viewDataOutliner(): OutlinerGroup[] {
+  const D = ATLAS.data;
+  return [
+    {
+      section: "Tables",
+      rows: D.tables.map((t) => ({
+        id: t.id,
+        label: t.label,
+        color: accentColor(t.accent),
+        sub: `${t.fields.length} cols · ${t.fields.filter((f) => f.fk).length} fk`,
+        badge: t.drift ? { label: "drift", color: tokens.coral } : undefined,
+      })),
+    },
+  ];
+}
+
+export function viewDataDescribe(id: string): InspectorModel | null {
+  const D = ATLAS.data;
+  const t = DATA_TABLE_INDEX.get(id);
+  if (!t) return null;
+  const accent = accentColor(t.accent);
+  const badges = [];
+  if (t.drift) badges.push({ label: "DRIFT", color: tokens.coral, bg: "rgba(251,113,133,0.14)" });
+
+  const fieldProps = t.fields.map((f) => {
+    const role = f.pk ? "PK" : f.fk ? "FK" : f.unique ? "UNIQUE" : f.idx ? "idx" : "";
+    return {
+      k: f.name + (f.idx && !f.pk && !f.fk && !f.unique ? "" : ""),
+      v: role ? `${f.ftype} · ${role}` : f.ftype,
+      mono: true,
+      color: f.pk
+        ? tokens.amber
+        : f.fk
+          ? tokens.cyan
+          : f.unique
+            ? tokens.violet
+            : tokens.cyanHi,
+    };
+  });
+
+  const fkCount = t.fields.filter((f) => f.fk).length;
+  const idxCount = t.fields.filter((f) => f.idx).length;
+  const pk = t.fields.find((f) => f.pk)?.name ?? "—";
+
+  const rels: InspectorModel["sections"][number]["rels"] = [];
+  D.rels.forEach((r) => {
+    if (r.from === id) {
+      const o = DATA_TABLE_INDEX.get(r.to);
+      if (o) rels.push({ label: o.label, color: accentColor(o.accent), kind: "1 ─< many", target: r.to });
+    } else if (r.to === id) {
+      const o = DATA_TABLE_INDEX.get(r.from);
+      if (o) rels.push({ label: o.label, color: accentColor(o.accent), kind: "many >─ 1", target: r.from });
+    }
+  });
+
+  return {
+    type: "module",
+    typeLabel: "table",
+    title: t.label,
+    accent,
+    id: `table@${t.id} · ${t.fields.length} cols`,
+    badges,
+    sections: [
+      { title: `Columns · ${t.fields.length}`, props: fieldProps },
+      {
+        title: "Indexes & keys",
+        props: [
+          { k: "primary key", v: pk, mono: true, color: tokens.amber },
+          { k: "foreign keys", v: String(fkCount), mono: true, color: tokens.cyan },
+          { k: "indexes", v: String(idxCount), mono: true },
+        ],
+      },
+      { title: `Relations · ${rels.length}`, rels },
+    ],
+    actions: [
+      { label: "Edit schema", kind: "primary" },
+      { label: "Migration", kind: "ghost" },
+    ],
+  };
+}
