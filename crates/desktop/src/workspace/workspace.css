@@ -1,0 +1,279 @@
+/* Tessera · workspace.css
+ * Docking-workspace styles. Ported from design/diagrams/index.html.
+ * Sizing/colour tokens come from design/tokens.css — never inline.
+ */
+
+.ws-surface {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, var(--ws-surface-dot) 1px, transparent 1.4px)
+      0 0 / 26px 26px,
+    var(--canvas);
+}
+
+.ws-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+}
+
+.ws-cache {
+  display: none;
+}
+
+.ws-dockhint {
+  position: absolute;
+  background: rgba(91, 107, 255, 0.16);
+  border: 1.5px dashed var(--ws-dock-split);
+  border-radius: 10px;
+  transition: all 0.08s ease;
+}
+
+.ws-dockhint.tabzone {
+  background: rgba(168, 85, 247, 0.2);
+  border-style: solid;
+  border-color: var(--ws-dock-tab);
+}
+
+.ws-frame {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--ws-frame-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--ws-frame-radius);
+  box-shadow:
+    0 18px 50px -18px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.015) inset;
+  overflow: hidden;
+  backdrop-filter: blur(22px);
+  transition: box-shadow 0.15s;
+}
+
+.ws-frame.dragging {
+  box-shadow:
+    0 30px 70px -16px rgba(0, 0, 0, 0.9),
+    0 0 0 1px var(--indigo) inset;
+  cursor: grabbing;
+}
+
+.ws-frame.resizing {
+  transition: none;
+}
+
+.ws-head {
+  height: var(--ws-header-h);
+  flex: 0 0 var(--ws-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  cursor: grab;
+  padding-right: 6px;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.ws-head:active {
+  cursor: grabbing;
+}
+
+.ws-tabs {
+  display: flex;
+  gap: 2px;
+  align-items: stretch;
+  flex: 1;
+  overflow: hidden;
+  padding-left: 5px;
+  height: 100%;
+}
+
+.ws-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  position: relative;
+  border-radius: 7px;
+  margin: 4px 0;
+}
+
+.ws-tab.on {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.ws-tab.on::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -4px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--indigo), var(--magenta));
+}
+
+.ws-tab-ico {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.ws-tab-x {
+  font-size: 13px;
+  opacity: 0.4;
+  margin-left: 2px;
+  border-radius: 4px;
+  width: 15px;
+  text-align: center;
+}
+
+.ws-tab-x:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ws-ctrls {
+  display: flex;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+
+.ws-btn {
+  width: 23px;
+  height: 23px;
+  border: none;
+  background: transparent;
+  color: var(--text-mute);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.ws-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+.ws-bodies {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.ws-frame.collapsed .ws-bodies {
+  display: none;
+}
+
+.ws-body {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+.ws-resize {
+  position: absolute;
+  z-index: 5;
+}
+
+.ws-resize.n  { top: -3px;    left: 8px;   right: 8px;  height: 8px; cursor: ns-resize; }
+.ws-resize.s  { bottom: -3px; left: 8px;   right: 8px;  height: 8px; cursor: ns-resize; }
+.ws-resize.e  { right: -3px;  top: 8px;    bottom: 8px; width: 8px;  cursor: ew-resize; }
+.ws-resize.w  { left: -3px;   top: 8px;    bottom: 8px; width: 8px;  cursor: ew-resize; }
+.ws-resize.ne { top: -3px;    right: -3px; width: 14px; height: 14px; cursor: nesw-resize; }
+.ws-resize.nw { top: -3px;    left: -3px;  width: 14px; height: 14px; cursor: nwse-resize; }
+.ws-resize.se { bottom: -3px; right: -3px; width: 14px; height: 14px; cursor: nwse-resize; }
+.ws-resize.sw { bottom: -3px; left: -3px;  width: 14px; height: 14px; cursor: nesw-resize; }
+
+/* Demo-route chrome — kept here so the engine remains the only consumer
+ * of these styles for now; PR6 will retire the demo route entirely. */
+.ws-demo {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 44px 1fr;
+  background: var(--canvas);
+}
+
+.ws-demo-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.ws-demo-bar .ws-demo-title {
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin-right: 10px;
+}
+
+.ws-demo-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ws-demo-bar button:hover {
+  border-color: var(--line-hi);
+}
+
+.ws-demo-bar .ws-demo-spacer {
+  flex: 1;
+}
+
+.ws-demo-bar .ws-demo-tray {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ws-demo-bar .ws-demo-tray .tray-chip {
+  padding: 4px 9px;
+  background: var(--surface-2);
+  border: 1px dashed var(--line-hi);
+  border-radius: 7px;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ws-demo-bar .ws-demo-tray .tray-chip:hover {
+  color: var(--text);
+  border-style: solid;
+}
+
+.ws-demo-body {
+  position: relative;
+  min-height: 0;
+}
