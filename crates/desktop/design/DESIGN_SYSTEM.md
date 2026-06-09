@@ -2,7 +2,7 @@
 
 **Direction:** Prism · vibrant, dark-first, glass surfaces, multi-hue accent system, depth-of-field diagrams.
 
-This document is the source of truth for the Tessera desktop app's visual language. It pairs with `Tessera Identity.html` (the live design canvas) for visual reference. Implementation lives in `crates/desktop/`; this doc tells you what to build, not how to build it.
+This document is the source of truth for the Tessera desktop app's visual language. It pairs with two live references: `canvas/index.html` (the frozen visual-identity artboards) and `diagrams/index.html` (the diagram language + docking workspace, built in real D3). Implementation lives in `crates/desktop/`; this doc tells you what to build, not how to build it.
 
 ---
 
@@ -14,6 +14,8 @@ This document is the source of truth for the Tessera desktop app's visual langua
 4. **Type carries hierarchy.** Display weights are tight (`-2.5%` to `-3.5%` tracking). UI is medium. Mono is for anything copyable: IDs, queries, code, diff.
 5. **Motion is springs.** Transitions snap with stiff/soft springs (see §5). Linear easing is reserved for hover-state color shifts only.
 6. **No ornament.** No skeuomorphic textures, no gratuitous gradients, no shadows that don't carry meaning. Glows tint to the element's accent — they're shorthand for "this is alive."
+7. **One language, many views.** Domain, data, flows, architecture and UX are the *same* graph grammar re-projected — not five separate diagram tools. A Reservation is magenta whether it's an aggregate in the domain graph, the `reservations` table in the ERD, or a step in a flow. Color↔type, depth tiers, edge grammar, state badges and the inspector behave identically in every view. Learn the language once.
+8. **The workspace belongs to the user.** The screen is a canvas of floating, dockable tiles — drag, tab, split, float, resize, collapse. View-switching is the rail; it is *not* a row of tabs in the title bar. Layout persists across reloads and resets in one click. Never lock the user into one arrangement.
 
 ---
 
@@ -85,10 +87,13 @@ Tessera names tokens both **semantically** (what they do) and exposes a **brand-
 
 ```css
 :root {
-  /* Node types — each is bound to one accent forever */
+  /* Node types — each is bound to one accent forever.
+     entity & value share the domain (magenta) hue; they differ by SHAPE. */
   --node-contract:      var(--indigo);    /* frozen API/promise */
   --node-usecase:       var(--cyan);      /* behavior */
-  --node-aggregate:     var(--magenta);   /* domain entity cluster */
+  --node-aggregate:     var(--magenta);   /* domain entity cluster (root) */
+  --node-entity:        var(--magenta);   /* identity-bearing member (circle) */
+  --node-value:         var(--magenta);   /* identity-LESS value object (hollow chip) */
   --node-module:        var(--surface-3); /* code-level concrete */
   --node-decision:      var(--violet);    /* ADR */
   --node-actor:         var(--text);      /* external agent */
@@ -105,6 +110,8 @@ Tessera names tokens both **semantically** (what they do) and exposes a **brand-
   --accent-grad:        linear-gradient(135deg, var(--indigo), var(--violet));
 }
 ```
+
+Three further semantic groups live in `tokens.css` and are documented where they're used: **depth-of-field tiers** (`--tier-*`, §6.2), **ERD field markers** (`--erd-*`, §6.6) and **flow paths** (`--flow-*`, §6.6), plus the **docking-workspace** tokens (`--ws-*`, §7). Add to those groups rather than hardcoding values in views.
 
 ### Usage rules (non-negotiable)
 
@@ -219,93 +226,135 @@ const easings = {
 
 ---
 
-## 6 · The Mosaic diagram model
+## 6 · The diagram language
 
-The defining surface. Three tiers of presence + camera-driven focus.
+The defining surface, and the thing that makes Tessera one product instead of five. Every view angle — Domain, Data, Flows, Architecture, UX — is the **same grammar re-projected onto a different topology**. Learn the grammar once (this section), then §6.6 shows how each view specializes it.
 
-### Tiers
+> **Reference implementation:** `diagrams/` is the canonical, validated build of this language in real D3 — `viz-core.js` is the shared grammar (color/shape/tier/edge/selection helpers + `<defs>`), the three `view-*.js` files are the projections, and `index.html` wires them into the docking shell. Translate *from* `diagrams/`, not from this prose, when the two disagree. (`canvas/prism.jsx` remains the static visual-identity reference only.)
 
-| Tier      | Opacity | Size factor | Blur     | Labels        | Edges          |
-|-----------|---------|-------------|----------|---------------|----------------|
-| **Focus** | 1.0     | 1.0         | none     | full          | full vivid     |
-| **Mid**   | 0.78    | 0.6–0.7     | 0.4 px   | dimmed        | 0.5 alpha      |
-| **Ghost** | 0.15–0.35 | 0.2–0.35  | 1.4 px   | hidden        | wispy traces   |
+### 6.1 · Node taxonomy — color is bound to type, shape to role
 
-### Membership rules
+Color answers *"what kind of thing is this?"*; shape answers *"what role does it play?"*. The two are orthogonal and **never** repurposed for decoration.
 
-A node is **focus** if:
-- It's selected, OR
-- It's within graph-distance 1 of the selected node, OR
-- It's in the user's pinned set (manual override).
+| Type        | Token              | Color   | Shape                         | Means                                  |
+|-------------|--------------------|---------|-------------------------------|----------------------------------------|
+| contract    | `--node-contract`  | indigo  | tile (rounded square)         | frozen promise between layers          |
+| use case    | `--node-usecase`   | cyan    | tile                          | behaviour — what the system does       |
+| aggregate   | `--node-aggregate` | magenta | tile                          | domain entity cluster (root)           |
+| entity      | `--node-entity`    | magenta | **filled circle**             | identity-bearing member of an aggregate|
+| value object| `--node-value`     | magenta | **hollow dashed chip**        | identity-LESS value (compared by value)|
+| module      | `--node-module`    | neutral | rounded pill                  | code-level concrete                    |
+| decision    | `--node-decision`  | violet  | **45° diamond**               | architectural decision / ADR           |
+| actor       | `--node-actor`     | white   | **hollow glyph circle**       | external agent (dashed if third-party) |
 
-A node is **mid** if it's within graph-distance 2 of any focus node.
+Fills are a radial gradient from the type's primary → its adjacent hue (contract = indigo→violet, aggregate = magenta→coral, use case = cyan→indigo). Value objects carry **no fill** — a 1.2px dashed magenta outline only — because they have no identity to assert.
 
-Everything else is **ghost**.
+### 6.2 · Depth-of-field tiers
 
-Tiers are re-evaluated on every selection change with spring-physics interpolation of opacity/scale/blur (don't snap — animate).
+On every selection, classify each node by graph-distance from the selection and animate it to one of three tiers (`--tier-*` tokens). Nothing selected ⇒ everything is **focus** (flat, fully legible default).
 
-### Node visual treatment
+| Tier      | Opacity | Scale | Blur     | Labels | Edges       | Distance |
+|-----------|---------|-------|----------|--------|-------------|----------|
+| **Focus** | 1.0     | 1.0   | none     | full   | full vivid  | selected or ≤1 hop (or pinned) |
+| **Mid**   | 0.62    | 0.82  | 0.5 px   | dimmed | 0.5 alpha   | 2 hops   |
+| **Ghost** | 0.20    | 0.6   | 1.5 px   | hidden | wispy trace | ≥3 hops / disconnected |
 
-- **Shape:** circle by default (r = 24–32 in focus, 14–18 in mid). Decision uses a 45°-rotated rounded square (marker). Actor uses a hollow circle (surface fill + outline only).
-- **Fill:** radial gradient from the type's primary → adjacent hue (e.g. contract = indigo → violet, aggregate = magenta → coral).
-- **Stroke:** 1.2px `rgba(255,255,255,0.42)` to lift off the canvas in dark mode; in light mode use 1px `rgba(0,0,0,0.18)`.
-- **Drop shadow:** `drop-shadow(0 6px 20px {type-glow}70)` — soft, tinted to the node's accent.
-- **Label:** below the node, never inside it. 12px sans 600 (700 if selected) on line 1; 9.5px mono uppercase `:type` on line 2 in `--text-mute`.
-- **Badges:**
-  - Drift → 5px coral circle at top-right with `drop-shadow(0 0 8px coral)`.
-  - Frozen → lime dashed ring at r+8 (overlaid on selection ring if also selected).
-  - Stale (downstream of a recently changed upstream) → opacity drops to 0.55, stays until re-derive.
+Interpolate with spring physics — never snap. This single move ("what you touch glows, the rest recedes") is what keeps a 200-node graph readable and is identical across all views. Implemented as `VizCore.computeTiers(ids, adjacency, selectedId)` + `TIER_STYLE`.
 
-### Selection halo
+### 6.3 · Node treatment
 
-- Outer glow: radius = node.r × 2.4, accent color, opacity 0.32, Gaussian blur stdDev=14.
-- Inner ring: dashed 4-3, 1.5px, lime (= "this is yours to act on now").
+- **Stroke:** 1.2px `rgba(255,255,255,0.42)` to lift off the canvas (dark); 1px `rgba(0,0,0,0.18)` in light mode.
+- **Shadow:** `drop-shadow(0 6px 18px {type-glow}66)` — soft, tinted to the node's accent. Ghost/mid tiers swap the shadow for a `blurGhost`/`blurMid` SVG filter.
+- **Label:** below the node, never inside it. Line 1 = 12px sans 600 (700 if selected); line 2 = 8.5px mono `:type` in `--text-mute`. Labels fade out entirely at the ghost tier.
+- **State badges:**
+  - **Drift** → 4.5px coral dot at top-right, `drop-shadow(0 0 7px coral)`. Never decorative — drift only.
+  - **Frozen** → lime dashed ring at r+5 (sits under the selection ring if both apply).
+  - **Stale** (downstream of an un-re-derived change) → opacity holds at ~0.55 until re-derive.
 
-### Edges
+### 6.4 · Selection halo (universal)
 
-- **Curve:** quadratic bezier with `lift = 0.16` for focus edges, `0.18` for mid (slightly more bow on background to imply 3D parallax). See `curvePath` in `shared.jsx` for the math.
-- **Stroke:** `rgba(255,255,255,0.55)` focus, `rgba(255,255,255,0.16)` mid, `rgba(255,255,255,0.05)` ghost.
-- **Width:** 1.8px (focus, with label), 1.4px (focus, no label), 1.1px (mid), 0.6px (ghost).
-- **Drift edge:** coral, dashed `5 5`, opacity 0.7.
-- **Decided-by edge** (decision → contract): violet, dashed `5 5`, slight extra curve.
-- **Edge label:** pill shape, surface-2 fill, mono 10px, centered at midpoint with -8px y offset.
+The selected element, in *any* view, gets the same two-part halo:
+- **Outer glow:** radius ≈ r×2.3, accent-tinted, opacity 0.3, `url(#glow)` blur.
+- **Inner ring:** dashed `4 3`, 1.5px, **lime** (`--selection-ring`) — lime always means "this is yours to act on now."
 
-### Camera & vignette
+### 6.5 · Edge grammar
 
-- Radial vignette overlay: transparent at center 55%, fading to canvas color at edges (opacity 0.85 dark, 0.7 light). Pulls eye to focal region without darkening the whole canvas.
-- Spotlight: faint radial gradient of `--indigo` at 10% alpha centered on focal area, gives subtle aurora-like ambient glow under the focus tier.
+- **Curve:** quadratic-ish bezier that bows outward; `lift ≈ 0.16` default, more for cross-cutting references (`0.22`) and decisions (`0.32`). `VizCore.curve()`; ERD uses orthogonal `VizCore.elbow()`.
+- **Ink:** `--edge` focus, `--edge-mid` mid, `--edge-ghost` ghost. Width 1.8px (labeled) / 1.3px (plain) / down to 0.6px (ghost).
+- **Containment** edges (`contains`, `has`) are muted + small arrowhead; **structural** edges (`derives`, `shapes`, `references`) are vivid.
+- **Drift edge** → coral, dashed `5 5`. **Decision edge** → violet, dashed `5 5`, extra bow.
+- **Label:** pill, `--surface-2` fill, mono 9–10px, centred at the midpoint.
+- Arrowheads come from shared markers in `<defs>`: `arrow`, `arrowMuted`, `arrowCoral`, `arrowLime`.
 
-### 3D / depth navigation (Tauri build-out)
+### 6.6 · The views — one grammar, five projections
 
-For the real D3 layout in Tauri:
+Each view keeps every rule above; only the **topology, layout and a few view-local marks** change. Selection, tiers, halo, inspector binding and the type→color map are constant.
 
-1. **Layout:** run `d3-force` with `link`, `manyBody`, `center`, plus a custom `radial` force pulling pinned/selected nodes inward.
-2. **Camera:** maintain `{ x, y, zoom }` state. On selection change, smoothly retarget camera to the bounding box of the focus tier (springs.gentle).
-3. **Z-depth feel:** apply opacity & blur curves driven by *screen distance from camera target* (not graph distance — these are different and both useful, but the visual fade should follow screen distance to keep edge motion stable during pan).
-4. **Pinning:** user can `⌘+click` a node to add to pin set. Pinned nodes count as focus regardless of selection.
+**Domain (DDD)** — force-directed graph. Bounded contexts render as soft dashed **territory hulls** (catmull-rom closed, context-hue at 7% fill) behind their clusters. Layouts: `contexts` (centroid-clustered) · `force` · `radial`. The home of aggregates/entities/value objects/contracts/use-cases/decisions.
+
+**Data (ERD)** — table cards. Each table is a glass card in its domain hue with a typed field row per column; field markers use `--erd-*`: `◆` PK (amber), `◇` FK (cyan), unique (violet), indexed columns get an indigo underline. Relationships are **crow's-foot** edges (one / many / zero-or-one) anchored on the FK row. Layouts: `spatial` (hand-placed) · `grid` (tidy columns). Tables map 1:1 to domain aggregates/entities — same name, same color.
+
+**Flows** — request→response, caller's POV. Steps sit in horizontal **swimlanes** (Actor · Edge/API · Application · Domain · Infra). The happy path is a glowing **animated spine** (`--flow-happy`, marching dashes); error branches peel off dashed in `--flow-error`; the 2xx terminal wears a `--flow-ok` ring. Each step keeps its type color (a contract step is indigo, exactly as in the domain graph). Layouts: `horizontal` · `vertical`.
+
+**Architecture** *(planned)* — layered bands with allowed/forbidden dependency edges (forbidden = coral, like drift). Reuses module + contract + boundary marks.
+
+**UX / Sequence** *(planned)* — actor-goal lifelines, system POV. Reuses actor + use-case + message-edge marks.
+
+> Layouts are computed in a **fixed virtual coordinate space** and fit-to-canvas via `d3-zoom`, so a diagram never overlaps itself at narrow widths — it letterboxes and scales. Keep this pattern for new views.
+
+### 6.7 · Camera, layout & scale (Tauri build-out)
+
+- **Layout:** `d3-force` (`link` + `manyBody` + `collide` + a per-view positioning force), settled synchronously for a calm first paint, then interactive. Above ~250 nodes, fall back to pre-computed / clustered layouts (see §11).
+- **Zoom/pan:** shared `VizCore.attachZoom`; `fit()` frames the focus tier's bounding box (springs.gentle feel).
+- **Pinning:** `⌘+click` adds a node to the pin set; pinned nodes count as focus regardless of selection.
+- **Vignette/spotlight:** optional radial wash of `--indigo` at ~10% under the focus region for ambient depth — never darken the whole canvas.
 
 ---
 
-## 7 · App shell layout
+## 7 · App shell & the docking workspace
+
+The shell is three fixed bands; the middle band is a **fluid workspace** the user owns.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Title bar (40–44px) — chrome / breadcrumb / search / avatar  │
-├────┬──────────┬─────────────────────────────────┬────────────┤
-│Rail│ Outliner │           Stage                 │ Inspector  │
-│56px│  232px   │           1fr                   │   296px    │
-│    │          │                                 │            │
-├────┴──────────┴─────────────────────────────────┴────────────┤
-│ Status bar (24–28px)                                         │
+│ Title bar (44px) — lights · brand · project · + Add panel ·   │
+│                    ⟲ Reset layout · ⌘K search · avatar        │
+├────┬─────────────────────────────────────────────────────────┤
+│Rail│  Workspace (1fr) — a canvas of floating, dockable tiles  │
+│56px│  ┌──────────┐ ┌───────────────────┐ ┌────────────┐       │
+│ ◐  │  │ Outliner │ │ ◧ Domain (Canvas) │ │ Inspector  │ …     │
+│ ⊟  │  └──────────┘ └───────────────────┘ └────────────┘       │
+│ ≋  │  (drag headers · drag a tab out to detach · drop on an    │
+│ ▤  │   edge to split · drop on a header to tab together)       │
+├────┴─────────────────────────────────────────────────────────┤
+│ Status bar (28px) — health/cascade · sync · agent             │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **Title bar:** `var(--surface-0)` translucent with `backdrop-filter: blur(10px)`. macOS traffic lights inset at 12px left. Center: connection breadcrumb `project › branch › view`. Right: search button + avatar circle.
-- **Rail:** background `rgba(255,255,255,0.02)` glass. 7 icons, 48px tall each. Active = `--indigo-bg` background + gradient indicator stripe on left edge (2px wide, indigo→magenta).
-- **Outliner:** glass card, 4 sections — Cascade rows (with state badges), Views list, footer with sync status.
-- **Stage:** the mosaic lives here. Header (view title + node count), filter bar (type pills + layout segmented), then full-bleed graph canvas.
-- **Inspector:** glass card, 4 tabs (Schema, Cascade, History, Notes). Schema tab shows the contract as syntax-highlighted JSON. Footer has primary (gradient) + secondary buttons.
-- **Status bar:** mono 10px, three regions: health/cascade summary | sync info | agent status.
+### Title bar
+`var(--surface-0)` translucent, `backdrop-filter: blur(10px)`. macOS lights inset 12px left, then brand mark + a project chip. **Center holds workspace controls, not view tabs:** `+ Add panel` (opens the panel menu) and `⟲ Reset layout`. Right: `⌘K` search + avatar. View-switching is *never* here — it lives in the rail (principle 8).
+
+### Rail (view-switching + global nav)
+Glass, `rgba(255,255,255,0.02)`. Top group = the view angles, each a 48px icon with a tiny mono key beneath (`DOM` `ERD` `FLOW` `ARCH` `UX`). Active = `--indigo-bg` fill + a 2px indigo→magenta stripe on the left edge; disabled/"soon" views sit at 0.4 opacity. A spacer pushes a bottom group (settings ⚙, panels ◫) — that's the "global nav, separate from view tabs" the rail is *kept* for.
+
+### Workspace (the canvas of tiles)
+The middle band is a positioned surface with a faint dot-grid (`--ws-surface-dot`, 26px) that reads as a canvas. Every region is a **Frame** — a glass tile (`--ws-frame-bg`, `--ws-frame-radius`, `backdrop-filter: blur(22px)`) holding one or more **Panels** as tabs. Frames float; they can also snap into a tidy tiled arrangement. The diagram itself is just the **Canvas** panel — it floats and docks like any other.
+
+**Panels (default set):** `Canvas` (◧, the active view's diagram + layout segmented + zoom; its tab label tracks the view name), `Outliner` (☰, element tree), `Inspector` (◳, selection detail), `Layers` (▦, type filters + legend), `Spec` (⌗, read-only preview of the spec Tessera would hand a coding agent for the selection — the forward hook for the edit→spec loop). Default layout: Outliner | Canvas | Inspector tiled edge-to-edge; Layers + Spec in the Add-panel tray.
+
+**Frame anatomy:** a `--ws-header-h` (34px) header = tab strip (left) + window controls (collapse `–` / maximize `▢` / close `×`, right). Active tab carries an indigo→magenta underline.
+
+**Interactions (all pointer-driven, see `workspace.js`):**
+- **Move** — drag a header. Magnetic snap (`--ws-snap`, 9px) to surface edges and neighbour frame edges.
+- **Resize** — 8 edge/corner handles, snapping to the same guides; `MIN 200×120`.
+- **Tab together** — drag a frame onto another's header zone → its panels merge in as tabs (`--ws-dock-tab` violet hint).
+- **Split** — drag a frame onto another's left/right/top/bottom quarter → the two sit side-by-side, each taking half (`--ws-dock-split` indigo hint).
+- **Detach** — drag a single tab out of a multi-tab group → it pops into a new floating frame at the pointer.
+- **Collapse / Maximize / Close** — header buttons; closed panels return to the Add-panel tray (never destroyed). Double-click header = maximize toggle.
+
+**Persistence:** the full layout (frame rects, z-order, tab groups, tray, active view) serializes to `localStorage` on every change and restores on load. `⟲ Reset layout` clears it and rebuilds the default. Panel bodies are **parked, never destroyed**, so D3 state, scroll position and selection survive every drag/tab/split.
+
+**Selection is the single source of truth.** It lives in app state, not in any panel — so dragging, tabbing, splitting or closing panels never loses what's selected. The Canvas highlight, Outliner active row, Inspector and Spec all read from it. Re-fit the Canvas diagram on its frame's resize/activate (a parked, zero-size panel must re-fit when shown).
 
 ---
 
@@ -379,33 +428,38 @@ All three live inside a glass "state box": radius `--radius-6`, 32×24 padding, 
 
 ## 9 · Iconography
 
-Tessera does not use a free icon library. The chrome uses six glyphs from the Unicode geometric set — they look like primitives, scale crisply, and avoid the "stock icon" tell:
+Tessera does not use a free icon library. The chrome uses glyphs from the Unicode geometric set — they look like primitives, scale crisply, and avoid the "stock icon" tell. The shipped chrome uses:
 
-| Glyph | Role                |
-|-------|---------------------|
-| ▦     | Mosaic / graph      |
-| ≡     | Cascade / stages    |
-| ◇     | Contracts / domain  |
-| ◐     | Domain modeling     |
-| ◬     | Agents              |
-| ◷     | History             |
-| ✦     | Decisions / settings |
+| Glyph | Role                          |
+|-------|-------------------------------|
+| ◐     | Domain view (rail key `DOM`)  |
+| ⊟     | Data / ERD view (`ERD`)       |
+| ≋     | Flows view (`FLOW`)           |
+| ▤     | Architecture view (`ARCH`)    |
+| ⇄     | UX / sequence view (`UX`)     |
+| ◧     | Canvas panel                  |
+| ☰     | Outliner panel                |
+| ◳     | Inspector panel               |
+| ▦     | Layers panel (filters+legend) |
+| ⌗     | Spec panel                    |
+| ⚙ ◫   | Rail global nav (settings, panels) |
 
-If you need additional glyphs (e.g. for filters or actions), prefer Phosphor `regular` weight at 1px stroke, color `--text-dim`.
+If you need additional glyphs (e.g. for filters or actions), prefer Phosphor `regular` weight at 1px stroke, color `--text-dim`. Keep one glyph bound to one meaning, the same way color is bound to type.
 
 ---
 
 ## 10 · UX rules
 
 1. **One primary action per screen.** Always the indigo gradient button. If you need two, demote one to secondary.
-2. **Tabs are sectioning, segmented controls are mode switches.** Inspector uses tabs. Layout (force/layered/radial) uses segmented.
+2. **View-switching is the rail; panels are tabs/segments inside frames.** Don't put view tabs in the title bar. Inspector-style sectioning uses tabs; mode switches (force/layered/radial, spatial/grid) use the segmented control.
 3. **State badges over icon-only indicators.** "FROZEN" reads instantly; a lock icon doesn't.
-4. **Inspector follows the canvas selection.** Selecting a node in the graph updates the inspector to that node's schema/cascade/history.
+4. **Inspector follows the canvas selection.** Selecting a node in any view updates the inspector — and the spec preview and outliner highlight — to that element. Selection is global state, not panel-local.
 5. **Annotations bind to node IDs, not positions.** When a node moves under force layout, its annotations move with it.
 6. **Search is everywhere.** `⌘K` from anywhere opens the command palette. `/` in the canvas focuses the filter input.
 7. **Freeze is a one-way commit by default.** Unfreezing requires an explicit "unfreeze" action that surfaces downstream consequences (which nodes will become stale).
 8. **Drift is loud but never blocking.** Coral indicator + status bar entry, but the user can keep working. Resolution is async.
 9. **The graph always animates between states.** Snap-cuts hide what's happening at the data layer; springs make it legible.
+10. **The layout is the user's and it persists.** Frames can be moved, tabbed, split, floated and closed freely; the arrangement survives reload. Always offer one-click `Reset layout`. Closing a panel parks it in the tray — never destroy its state.
 
 ---
 
@@ -435,8 +489,16 @@ These are intentional gaps — answer them with Claude Code when you get there:
 | `canvas/prism.jsx`              | **The chosen direction.** All 5 artboards.    |
 | `canvas/alternates/instrument.jsx` | Rejected alternate — kept for reference       |
 | `canvas/alternates/studio.jsx`  | Rejected alternate — kept for reference       |
+| `diagrams/index.html`           | **Canonical reference implementation** — the docking workspace + all views, in real D3. Open in a browser. |
+| `diagrams/viz-core.js`          | The shared diagram grammar (color/shape/tier/edge/selection helpers + `<defs>`) |
+| `diagrams/view-domain.js`       | Domain (DDD) projection — force graph + context hulls |
+| `diagrams/view-data.js`         | Data (ERD) projection — table cards + crow's-foot edges |
+| `diagrams/view-flow.js`         | Flows projection — swimlanes + animated happy path |
+| `diagrams/workspace.js`         | The docking engine (frames, drag/snap/tab/split/float, persistence) |
+| `diagrams/app.js`               | Wires views + panels onto the workspace; owns selection |
+| `diagrams/data.js`              | The shared "Atlas Stays" demo model feeding every view |
 
-The depth-of-field diagram logic is in `canvas/prism.jsx` under `PrismMosaic` / `PrismMiniMosaic` — use it as the reference implementation pattern when translating to D3 + canvas/SVG in the Tauri app.
+Two reference layers, different jobs: **`canvas/prism.jsx`** is the frozen *visual-identity* reference (the 5 chosen artboards). **`diagrams/`** is the *behavioural* reference — the diagram language and docking workspace built and validated in real D3. When implementing in Tauri, translate structure and interaction from `diagrams/` and check final look against `canvas/`.
 
 ---
 
