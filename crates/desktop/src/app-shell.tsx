@@ -1,301 +1,346 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { ViewDomain, ViewData, ViewFlow } from "./viz";
-import { ATLAS } from "./viz/data";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  setView,
-  useSelected,
-  useView,
-  type ViewId,
-} from "./state/app-store";
-import { TYPE } from "./viz/viz-core";
+  CanvasPanel,
+  InspectorPanel,
+  LayersPanel,
+  OutlinerPanel,
+  SpecPanel,
+} from "./panels";
+import "./panels/panels.css";
+import { setView, useView, type ViewId } from "./state/app-store";
 import { TitleBar } from "./title-bar";
+import { Workspace, type PanelDef, type WorkspaceApi, type WorkspaceLayout } from "./workspace/Workspace";
+import type { ViewHandle } from "./viz";
 import "./app-shell.css";
 
-type RailItem =
-  | { id: ViewId; icon: string; label: string; disabled?: boolean; group: "top" }
-  | { id: string; icon: string; label: string; disabled?: boolean; group: "bottom"; action?: () => void };
+const VIEW_LABELS: Record<ViewId, string> = {
+  domain: "Domain",
+  data: "Data",
+  flow: "Flows",
+  arch: "Architecture",
+  ux: "UX",
+};
 
-const RAIL_ITEMS: RailItem[] = [
-  { id: "domain", icon: "◐", label: "Domain", group: "top" },
-  { id: "data",   icon: "⊟", label: "Data · ERD", group: "top" },
-  { id: "flow",   icon: "≋", label: "Flows", group: "top" },
-  { id: "arch",   icon: "▤", label: "Architecture", group: "top", disabled: true },
-  { id: "ux",     icon: "⇄", label: "UX", group: "top", disabled: true },
-  { id: "settings", icon: "⚙", label: "Settings", group: "bottom", disabled: false },
-  { id: "panels",   icon: "◫", label: "Panels", group: "bottom", disabled: false },
+interface RailItem {
+  id: ViewId;
+  icon: string;
+  key: string;
+  on: boolean;
+}
+
+const RAIL: RailItem[] = [
+  { id: "domain", icon: "◐", key: "DOM", on: true },
+  { id: "data", icon: "⊟", key: "ERD", on: true },
+  { id: "flow", icon: "≋", key: "FLOW", on: true },
+  { id: "arch", icon: "▤", key: "ARCH", on: false },
+  { id: "ux", icon: "⇄", key: "UX", on: false },
 ];
 
-function useMeasured<T extends HTMLElement>(): [React.RefObject<T | null>, { width: number; height: number }] {
-  const ref = useRef<T | null>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setSize({ width: r.width, height: r.height });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, size];
+interface PanelMetaEntry {
+  id: string;
+  title: string;
+  icon: string;
+}
+
+const PANEL_META: PanelMetaEntry[] = [
+  { id: "canvas", title: "Canvas", icon: "◧" },
+  { id: "outliner", title: "Outliner", icon: "☰" },
+  { id: "inspector", title: "Inspector", icon: "◳" },
+  { id: "layers", title: "Layers", icon: "▦" },
+  { id: "spec", title: "Spec", icon: "⌗" },
+];
+
+function defaultLayout(size: { w: number; h: number }): WorkspaceLayout {
+  const W = Math.max(640, size.w || 1100);
+  const H = Math.max(380, size.h || 640);
+  const g = 12;
+  const L = 232;
+  const R = 300;
+  return {
+    frames: [
+      {
+        id: "f-ol",
+        x: g,
+        y: g,
+        w: L,
+        h: H - 2 * g,
+        z: 11,
+        tabs: ["outliner"],
+        active: "outliner",
+        collapsed: false,
+        maximized: false,
+      },
+      {
+        id: "f-cv",
+        x: L + 2 * g,
+        y: g,
+        w: Math.max(280, W - L - R - 4 * g),
+        h: H - 2 * g,
+        z: 12,
+        tabs: ["canvas"],
+        active: "canvas",
+        collapsed: false,
+        maximized: false,
+      },
+      {
+        id: "f-insp",
+        x: W - R - g,
+        y: g,
+        w: R,
+        h: H - 2 * g,
+        z: 11,
+        tabs: ["inspector"],
+        active: "inspector",
+        collapsed: false,
+        maximized: false,
+      },
+    ],
+    tray: ["layers", "spec"],
+  };
 }
 
 export function AppShell() {
   const view = useView();
-  const selected = useSelected();
-  const [stageRef, stageSize] = useMeasured<HTMLDivElement>();
+  const wsRef = useRef<WorkspaceApi>(null);
+  const canvasApiRef = useRef<ViewHandle | null>(null);
+
+  // Engine layout-mutation tick — used by both the rail's "placed" hint
+  // and the add-panel menu so they stay in sync with drag/tab/split/close
+  // events without polling the workspace API on every render.
+  const [layoutTick, setLayoutTick] = useState(0);
+  const bumpLayout = useCallback(() => setLayoutTick((t) => t + 1), []);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggleMenu = useCallback(() => setMenuOpen((o) => !o), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  // The PanelDef list is stable for the workspace's lifetime — render
+  // closures capture refs (canvasApiRef, wsRef) so updates land naturally.
+  const panels: PanelDef[] = useMemo(
+    () => [
+      {
+        id: "canvas",
+        title: PANEL_META[0].title,
+        icon: PANEL_META[0].icon,
+        render: () => <CanvasPanel apiRef={canvasApiRef} />,
+        onActivate: () => canvasApiRef.current?.fit(),
+        onResize: () => canvasApiRef.current?.fit(),
+      },
+      {
+        id: "outliner",
+        title: PANEL_META[1].title,
+        icon: PANEL_META[1].icon,
+        render: () => <OutlinerPanel />,
+      },
+      {
+        id: "inspector",
+        title: PANEL_META[2].title,
+        icon: PANEL_META[2].icon,
+        render: () => <InspectorPanel />,
+      },
+      {
+        id: "layers",
+        title: PANEL_META[3].title,
+        icon: PANEL_META[3].icon,
+        render: () => <LayersPanel />,
+      },
+      {
+        id: "spec",
+        title: PANEL_META[4].title,
+        icon: PANEL_META[4].icon,
+        render: () => <SpecPanel />,
+      },
+    ],
+    [],
+  );
+
+  // Canvas tab label follows the active view name.
+  useEffect(() => {
+    wsRef.current?.setTitle("canvas", VIEW_LABELS[view]);
+  }, [view]);
+
+  // Outside-click closes the add-panel menu. The buttons that toggle it
+  // stop propagation themselves, so this only fires for real outside hits.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocClick = (ev: MouseEvent): void => {
+      const target = ev.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(".ws-menu") || target.closest('[aria-haspopup="menu"]') || target.closest('[title="Panels"]')) {
+        return;
+      }
+      setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [menuOpen]);
+
+  const onAddPanel = useCallback(
+    (id: string) => {
+      wsRef.current?.openPanel(id);
+      closeMenu();
+    },
+    [closeMenu],
+  );
+
+  const onResetLayout = useCallback(() => {
+    wsRef.current?.reset();
+    closeMenu();
+  }, [closeMenu]);
+
+  const isPlaced = useCallback(
+    (id: string) => wsRef.current?.isPlaced(id) ?? false,
+    // layoutTick keeps this fresh after each onChange
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutTick],
+  );
+
+  const menuNode = (
+    <AddPanelMenu
+      panels={PANEL_META}
+      isPlaced={isPlaced}
+      onPick={onAddPanel}
+      onReset={onResetLayout}
+      onClose={closeMenu}
+    />
+  );
 
   return (
     <div className="shell">
-      <TitleBar />
+      <TitleBar
+        projectLabel="atlas-stays"
+        addPanel={{ open: menuOpen, onToggle: toggleMenu, menu: menuNode }}
+        onResetLayout={onResetLayout}
+      />
 
-      {/* Sub-toolbar: breadcrumbs + search */}
-      <div className="subbar">
-        <div className="subbar-left">
-          <button className="breadcrumb-segment breadcrumb-project">atlas-stays</button>
-          <span className="breadcrumb-sep">›</span>
-          <div className="breadcrumb-segment breadcrumb-active">
-            <span className="breadcrumb-dot" />
-            {view === "domain" ? "Domain" : view === "data" ? "Data · ERD" : view === "flow" ? "Flow · Book a stay" : view}
-          </div>
-        </div>
-        <div className="subbar-right">
-          <button className="search-button">
-            <span className="search-kbd">⌘K</span>
-            <span>Search</span>
-          </button>
-          <div className="avatar">SE</div>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="body">
-        {/* Rail */}
+      <div className="shell-body">
         <nav className="rail">
-          {RAIL_ITEMS.filter((i) => i.group === "top").map((item) => {
-            const isView = (id: string): id is ViewId =>
-              id === "domain" || id === "data" || id === "flow" || id === "arch" || id === "ux";
-            const active = isView(item.id) && view === item.id;
-            const disabled = item.disabled === true;
+          {RAIL.map((r) => {
+            const active = r.id === view;
             return (
               <button
-                key={item.id}
-                className={`rail-item ${active ? "rail-item-active" : ""} ${disabled ? "rail-item-disabled" : ""}`}
-                onClick={() => {
-                  if (disabled) return;
-                  if (isView(item.id)) setView(item.id);
+                key={r.id}
+                type="button"
+                className={`rail-item${active ? " active" : ""}`}
+                style={{
+                  opacity: r.on ? 1 : 0.4,
+                  cursor: r.on ? "pointer" : "not-allowed",
                 }}
-                disabled={disabled}
-                title={item.label}
+                title={r.on ? VIEW_LABELS[r.id] : `${r.id} · soon`}
+                onClick={() => {
+                  if (r.on) setView(r.id);
+                }}
+                disabled={!r.on}
               >
-                {active && <span className="rail-indicator" />}
-                <span className="rail-icon">{item.icon}</span>
+                <span className="ico">{r.icon}</span>
+                <span className="rk">{r.key}</span>
               </button>
             );
           })}
           <div className="rail-grow" />
-          {RAIL_ITEMS.filter((i) => i.group === "bottom").map((item) => (
-            <button
-              key={item.id}
-              className="rail-item"
-              title={item.label}
-              onClick={() => { /* PR6 wires Settings + Panels */ }}
-            >
-              <span className="rail-icon">{item.icon}</span>
-            </button>
-          ))}
+          <div className="rail-sep" />
+          <button
+            type="button"
+            className="rail-item"
+            title="Settings"
+            onClick={() => {
+              /* PR7: settings drawer */
+            }}
+          >
+            <span className="ico">⚙</span>
+          </button>
+          <button
+            type="button"
+            className="rail-item"
+            title="Panels"
+            onClick={toggleMenu}
+          >
+            <span className="ico">◫</span>
+          </button>
         </nav>
 
-        {/* Outliner — static cascade chrome; PR6 will rebind to view-specific outliner data. */}
-        <aside className="outliner">
-          <div className="outliner-header">
-            <div className="outliner-label">Cascade</div>
-            <div className="outliner-title">Atlas Stays</div>
-          </div>
-          <div className="outliner-rows">
-            <CascadeRow dot="var(--indigo)" label="Contracts" count="3/3" state="frozen" />
-            <CascadeRow dot="var(--cyan)" label="Use cases" count="5/5" state="frozen" active />
-            <CascadeRow dot="var(--magenta)" label="Placement" count="4/4" state="drafting" />
-            <CascadeRow dot="var(--text-mute)" label="Implementation" count="—" state="locked" />
-          </div>
-          <div className="outliner-footer">
-            <span className="sync-dot" />
-            <span>cloud graph · synced</span>
-          </div>
-        </aside>
-
-        {/* Stage */}
-        <main className="stage">
-          <div className="stage-header">
-            <div className="stage-header-left">
-              <h2 className="stage-title">
-                {view === "domain" ? "Domain" : view === "data" ? "Data · ERD" : view === "flow" ? "Flow · Book a stay" : "—"}
-              </h2>
-              <span className="stage-meta">
-                {view === "domain"
-                  ? `${ATLAS.domain.nodes.length} elements · ${ATLAS.domain.contexts.length} contexts · `
-                  : view === "data"
-                  ? `${ATLAS.data.tables.length} tables · ${ATLAS.data.rels.length} relations · `
-                  : `${ATLAS.flow.steps.filter((s) => s.seq).length} steps · `}
-                <span className="drift-text">1 drift</span>
-              </span>
-            </div>
-            <div className="segmented-control">
-              <button className="seg seg-active">force</button>
-              <button className="seg">layered</button>
-              <button className="seg">radial</button>
-            </div>
-          </div>
-          <div className="stage-filters">
-            <PillFilter color="var(--magenta)" label="Aggregate" count={4} />
-            <PillFilter color="var(--cyan)" label="UseCase" count={5} />
-            <PillFilter color="var(--indigo)" label="Contract" count={3} />
-            <PillFilter color="var(--violet)" label="Decision" count={1} />
-            <PillFilter color="var(--text)" label="Actor" count={3} />
-          </div>
-          <div className="stage-canvas" ref={stageRef}>
-            {view === "domain" && <ViewDomain width={stageSize.width} height={stageSize.height} />}
-            {view === "data" && <ViewData width={stageSize.width} height={stageSize.height} />}
-            {view === "flow" && <ViewFlow width={stageSize.width} height={stageSize.height} />}
-            {(view === "arch" || view === "ux") && (
-              <div className="stage-empty">
-                <span className="stage-empty-label">{view === "arch" ? "Architecture" : "UX"} view — coming later</span>
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* Inspector — bound to global selection. PR6 will rebuild fully. */}
-        <Inspector view={view} selected={selected} />
+        <Workspace
+          ref={wsRef}
+          panels={panels}
+          defaultLayout={defaultLayout}
+          lsKey="tessera.workspace.v2"
+          onChange={bumpLayout}
+        />
       </div>
 
-      {/* Status bar */}
       <footer className="statusbar">
-        <div className="statusbar-left">
-          <span className="status-health"><span className="status-dot status-dot-healthy" /> graph healthy</span>
-          <span>cascade · 7 frozen · <span className="drift-text">1 drift</span></span>
+        <div className="grp">
+          <span className="it">
+            <span className="status-dot status-dot-healthy" /> graph healthy
+          </span>
+          <span>
+            cascade · 7 frozen ·{" "}
+            <span className="drift-text">1 drift</span>
+          </span>
         </div>
-        <span className="statusbar-center">mosaic@atlas-stays · rev 042 · synced 12s ago</span>
-        <span className="statusbar-right"><span className="status-dot status-dot-agent" /> haiku-4-5 · idle</span>
+        <span>
+          {view}@atlas-stays · rev 042 · synced 12s ago
+        </span>
+        <span className="it">
+          <span className="status-dot status-dot-agent" /> haiku-4-5 · idle
+        </span>
       </footer>
     </div>
   );
 }
 
-function Inspector({ view, selected }: { view: ViewId; selected: string | null }) {
-  const meta = lookupSelected(view, selected);
+interface AddPanelMenuProps {
+  panels: PanelMetaEntry[];
+  isPlaced: (id: string) => boolean;
+  onPick: (id: string) => void;
+  onReset: () => void;
+  onClose: () => void;
+}
+
+function AddPanelMenu({ panels, isPlaced, onPick, onReset, onClose }: AddPanelMenuProps) {
+  // Re-subscribe on layoutTick by reading isPlaced inside the render — the
+  // parent owns the tick. Stop click propagation so the global outside-click
+  // handler doesn't immediately close us.
+  // useSyncExternalStore here would be overkill for a render-pass refresh.
+
   return (
-    <aside className="inspector">
-      <div className="inspector-header">
-        <div className="inspector-type-row">
-          <span
-            className="inspector-type-dot"
-            style={meta ? { background: meta.color, boxShadow: `0 0 12px ${meta.color}` } : undefined}
-          />
-          <span className="inspector-type-label">{meta?.typeLabel ?? "—"}</span>
-          {meta?.badge && (
-            <span className="inspector-state-badge">{meta.badge}</span>
-          )}
-        </div>
-        <h2 className="inspector-title">{meta?.title ?? "Nothing selected"}</h2>
-        <div className="inspector-id">{meta?.id ?? "click a node to inspect"}</div>
-      </div>
-      <div className="inspector-tabs">
-        <button className="tab tab-active">Schema</button>
-        <button className="tab">Cascade</button>
-        <button className="tab">History</button>
-        <button className="tab">Notes</button>
-      </div>
-      <div className="inspector-body">
-        {meta ? (
-          <div className="inspector-prop">
-            <span className="inspector-prop-key">:type</span>
-            <span className="inspector-prop-val">{meta.typeLabel}</span>
-          </div>
-        ) : (
-          <div className="inspector-placeholder">Select a node to inspect its schema</div>
-        )}
-      </div>
-      <div className="inspector-footer">
-        <button className="btn-primary">Re-derive downstream</button>
-        <button className="btn-secondary">Edit schema</button>
-      </div>
-    </aside>
-  );
-}
-
-interface SelectedMeta {
-  title: string;
-  typeLabel: string;
-  color: string;
-  badge?: string;
-  id: string;
-}
-
-function lookupSelected(view: ViewId, id: string | null): SelectedMeta | null {
-  if (!id) return null;
-  if (view === "domain") {
-    const n = ATLAS.domain.nodes.find((x) => x.id === id);
-    if (!n) return null;
-    const t = TYPE[n.type];
-    return {
-      title: n.label,
-      typeLabel: t.label,
-      color: t.glow,
-      badge: n.frozen ? "FROZEN" : n.drift ? "DRIFT" : undefined,
-      id: `node:${n.type}@${n.id}`,
-    };
-  }
-  if (view === "data") {
-    const t = ATLAS.data.tables.find((x) => x.id === id);
-    if (!t) return null;
-    return {
-      title: t.label,
-      typeLabel: "table",
-      color: `var(--${t.accent})`,
-      badge: t.drift ? "DRIFT" : undefined,
-      id: `table@${t.id}`,
-    };
-  }
-  if (view === "flow") {
-    const s = ATLAS.flow.steps.find((x) => x.id === id);
-    if (!s) return null;
-    const t = TYPE[s.type];
-    return {
-      title: s.label,
-      typeLabel: t.label,
-      color: s.terminal === "err" ? "var(--coral)" : t.glow,
-      badge: s.terminal === "ok" ? "2XX" : s.terminal === "err" ? "ERROR" : s.drift ? "DRIFT" : undefined,
-      id: `step@${s.id}`,
-    };
-  }
-  return null;
-}
-
-function CascadeRow({ dot, label, count, state, active }: {
-  dot: string; label: string; count: string; state: string; active?: boolean;
-}) {
-  return (
-    <div className={`cascade-row ${active ? "cascade-row-active" : ""}`}>
-      <span className="cascade-dot" style={{ background: dot }} />
-      <div className="cascade-info">
-        <span className="cascade-label">{label}</span>
-        <span className="cascade-count">{count}</span>
-      </div>
-      <span className={`cascade-state cascade-state-${state}`}>{state}</span>
+    <div
+      className="ws-menu"
+      role="menu"
+      onClick={(ev) => ev.stopPropagation()}
+    >
+      {panels.map((p) => {
+        const placed = isPlaced(p.id);
+        return (
+          <button
+            type="button"
+            key={p.id}
+            className={`mi${placed ? " placed" : ""}`}
+            disabled={placed}
+            onClick={() => {
+              if (placed) return;
+              onPick(p.id);
+            }}
+          >
+            <span className="gl">{p.icon}</span>
+            <span>{p.title}</span>
+            {placed ? <span className="mi-tag">placed</span> : null}
+          </button>
+        );
+      })}
+      <div className="sep" />
+      <button
+        type="button"
+        className="mi"
+        onClick={() => {
+          onReset();
+          onClose();
+        }}
+      >
+        <span className="gl">⟲</span>
+        <span>Reset layout</span>
+      </button>
     </div>
   );
 }
 
-function PillFilter({ color, label, count }: { color: string; label: string; count: number }) {
-  return (
-    <button className="pill-filter">
-      <span className="pill-dot" style={{ background: color }} />
-      <span>{label}</span>
-      <span className="pill-count">{count}</span>
-    </button>
-  );
-}

@@ -19,6 +19,7 @@ import {
 import { zoomIdentity } from "d3-zoom";
 
 import {
+  LARGE_GRAPH_THRESHOLD,
   TYPE,
   attachZoom,
   computeTiers,
@@ -29,8 +30,15 @@ import {
   type NodeKind,
 } from "./viz-core";
 import { ATLAS, type FlowEdge, type FlowStep } from "./data";
+import { makeSpring, type SpringHandle } from "./motion";
+import type {
+  InspectorModel,
+  OutlinerGroup,
+  ProjectionMeta,
+} from "./projection";
 import {
   select as selectAction,
+  setLargeGraph,
   togglePin,
   useLayout,
   usePinned,
@@ -145,6 +153,9 @@ export const ViewFlow = forwardRef<ViewHandle, { width: number; height: number }
         (adjacency[e.from] ??= []).push(e.to);
         (adjacency[e.to] ??= []).push(e.from);
       }
+      setLargeGraph(steps.length > LARGE_GRAPH_THRESHOLD);
+
+      const stepSprings = new Map<string, SpringHandle>();
 
       const root = svg.append("g").attr("class", "flow-root") as D3Selection<SVGGElement>;
       const laneLayer = root.append("g").attr("class", "lane-layer");
@@ -414,10 +425,26 @@ export const ViewFlow = forwardRef<ViewHandle, { width: number; height: number }
         for (const p of pinnedSet) {
           if (tierMap[p]) tierMap[p] = "focus";
         }
-        step.transition().duration(300).style("opacity", (s) => {
-          if (!selId && pinnedSet.size === 0) return 1;
+        step.each(function (s) {
           const t = tierMap[s.id];
-          return t === "ghost" ? 0.32 : t === "mid" ? 0.78 : 1;
+          const target =
+            !selId && pinnedSet.size === 0
+              ? 1
+              : t === "ghost"
+                ? 0.32
+                : t === "mid"
+                  ? 0.78
+                  : 1;
+          const el = this;
+          const from = Number.parseFloat(el.style.opacity || "") || 1;
+          let spring = stepSprings.get(s.id);
+          if (!spring) {
+            spring = makeSpring();
+            stepSprings.set(s.id, spring);
+          }
+          spring.to(from, target, (v) => {
+            el.style.opacity = String(v);
+          });
         });
         step
           .select<SVGRectElement>(".sel-ring")
@@ -462,6 +489,8 @@ export const ViewFlow = forwardRef<ViewHandle, { width: number; height: number }
       void stepById;
 
       return () => {
+        for (const s of stepSprings.values()) s.stop();
+        stepSprings.clear();
         tiersRef.current = null;
         apiRef.current = null;
       };
@@ -474,3 +503,128 @@ export const ViewFlow = forwardRef<ViewHandle, { width: number; height: number }
     return <svg ref={svgRef} width={width} height={height} className="viz-svg" />;
   },
 );
+
+// ── projection meta ──────────────────────────────────────────────────────
+
+const FLOW_STEP_INDEX = new Map(ATLAS.flow.steps.map((s) => [s.id, s]));
+const FLOW_LANE_INDEX = new Map(ATLAS.flow.lanes.map((l, i) => [l.id, i]));
+
+export function viewFlowMeta(): ProjectionMeta {
+  return {
+    id: "flow",
+    label: "Flows",
+    eyebrow: "Request → response",
+    title: "Book a stay",
+    stageTitle: "Flow · Book a stay",
+    stageMeta: `8 steps · happy path + 2 error branches · <span style="color:var(--coral)">1 drift</span>`,
+    layouts: [
+      { id: "horizontal", label: "horizontal" },
+      { id: "vertical", label: "vertical" },
+    ],
+    defaultLayout: "horizontal",
+    filters: [],
+    legendTitle: "Path",
+    legend: [
+      { glyph: '<span style="color:var(--cyan-hi)">━</span>', label: "Happy path (animated)" },
+      { glyph: '<span style="color:var(--coral)">┄</span>', label: "Error branch" },
+      { glyph: '<span style="color:var(--lime)">◌</span>', label: "2xx response" },
+      { glyph: '<span style="color:var(--coral)">●</span>', label: "Contract drift" },
+    ],
+  };
+}
+
+export function viewFlowOutliner(): OutlinerGroup[] {
+  const D = ATLAS.flow;
+  const seq = D.steps.filter((s) => s.seq).slice().sort((a, b) => a.seq.localeCompare(b.seq));
+  return [
+    {
+      section: "Call sequence",
+      rows: seq.map((s) => ({
+        id: s.id,
+        label: `${s.seq} · ${s.label}`,
+        color: TYPE[s.type as NodeKind].glow,
+        sub: s.sub ?? "",
+        badge: s.drift ? { label: "drift", color: tokens.coral } : undefined,
+      })),
+    },
+    {
+      section: "Outcomes",
+      rows: D.steps
+        .filter((s) => s.terminal)
+        .map((s) => ({
+          id: s.id,
+          label: s.label,
+          color: s.terminal === "ok" ? tokens.lime : tokens.coral,
+          badge: {
+            label: s.terminal === "ok" ? "2xx" : "err",
+            color: s.terminal === "ok" ? tokens.lime : tokens.coral,
+          },
+        })),
+    },
+  ];
+}
+
+export function viewFlowDescribe(id: string): InspectorModel | null {
+  const D = ATLAS.flow;
+  const s = FLOW_STEP_INDEX.get(id);
+  if (!s) return null;
+  const t = TYPE[s.type as NodeKind];
+  const laneIdx = FLOW_LANE_INDEX.get(s.lane) ?? 0;
+  const lane = D.lanes[laneIdx];
+  const badges = [];
+  if (s.terminal === "ok") badges.push({ label: "RESPONSE 2XX", color: tokens.lime, bg: "rgba(163,230,53,0.14)" });
+  if (s.terminal === "err") badges.push({ label: "ERROR PATH", color: tokens.coral, bg: "rgba(251,113,133,0.14)" });
+  if (s.drift) badges.push({ label: "DRIFT", color: tokens.coral, bg: "rgba(251,113,133,0.14)" });
+
+  const ins: InspectorModel["sections"][number]["rels"] = [];
+  const outs: InspectorModel["sections"][number]["rels"] = [];
+  D.edges.forEach((e) => {
+    if (e.to === id) {
+      const o = FLOW_STEP_INDEX.get(e.from);
+      if (o)
+        ins.push({
+          label: o.label,
+          color: TYPE[o.type as NodeKind].glow,
+          kind: (e.label ?? "→") + (e.path === "err" ? " · err" : ""),
+          target: e.from,
+        });
+    } else if (e.from === id) {
+      const o = FLOW_STEP_INDEX.get(e.to);
+      if (o)
+        outs.push({
+          label: o.label,
+          color: TYPE[o.type as NodeKind].glow,
+          kind: (e.label ?? "→") + (e.path === "err" ? " · err" : ""),
+          target: e.to,
+        });
+    }
+  });
+
+  const sections: InspectorModel["sections"] = [
+    {
+      title: "Step",
+      props: [
+        { k: "lane", v: lane.label },
+        { k: "kind", v: t.label },
+        { k: "detail", v: s.sub ?? "—", mono: true, color: tokens.cyanHi },
+        { k: "sequence", v: s.seq ? `#${s.seq}` : "entry/exit", mono: true },
+      ],
+    },
+  ];
+  if (ins.length) sections.push({ title: "Called by", rels: ins });
+  if (outs.length) sections.push({ title: "Calls", rels: outs });
+
+  return {
+    type: s.type,
+    typeLabel: t.label,
+    title: s.label,
+    accent: s.terminal === "err" ? tokens.coral : t.glow,
+    id: `step ${s.seq || "—"} · ${s.id}`,
+    badges,
+    sections,
+    actions: [
+      { label: "Trace", kind: "primary" },
+      { label: "Logs", kind: "ghost" },
+    ],
+  };
+}

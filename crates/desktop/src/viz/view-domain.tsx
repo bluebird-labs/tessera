@@ -33,6 +33,7 @@ import { zoomIdentity } from "d3-zoom";
 
 import {
   HUE,
+  LARGE_GRAPH_THRESHOLD,
   TIER_STYLE,
   TYPE,
   adjacencyOf,
@@ -48,6 +49,12 @@ import {
   type Tier,
 } from "./viz-core";
 import { ATLAS, type DomainNode } from "./data";
+import { makeSpring, type SpringHandle } from "./motion";
+import type {
+  InspectorModel,
+  OutlinerGroup,
+  ProjectionMeta,
+} from "./projection";
 import {
   select as selectAction,
   setLargeGraph,
@@ -170,7 +177,10 @@ export const ViewDomain = forwardRef<ViewHandle, { width: number; height: number
       }
 
       const adjacency = adjacencyOf(D.edges);
-      setLargeGraph(visibleNodes.length > 250);
+      setLargeGraph(visibleNodes.length > LARGE_GRAPH_THRESHOLD);
+
+      const nodeSprings = new Map<string, SpringHandle>();
+      const labelSprings = new Map<string, SpringHandle>();
 
       const sim: Simulation<SimNode, SimLink> = forceSimulation<SimNode>(visibleNodes)
         .force(
@@ -433,15 +443,35 @@ export const ViewDomain = forwardRef<ViewHandle, { width: number; height: number
         g.each(function (n) {
           const tier: Tier = tierMap[n.id] ?? "focus";
           const st = TIER_STYLE[tier];
-          const node = d3Select(this);
-          node.transition().duration(360).style("opacity", st.opacity);
+          const el = this;
+          const node = d3Select(el);
+          const fromO = Number.parseFloat(el.style.opacity || "") || 1;
+          let nSpring = nodeSprings.get(n.id);
+          if (!nSpring) {
+            nSpring = makeSpring();
+            nodeSprings.set(n.id, nSpring);
+          }
+          nSpring.to(fromO, st.opacity, (v) => {
+            el.style.opacity = String(v);
+          });
           node
             .select(".shape-slot")
             .style(
               "filter",
               tier === "ghost" ? "url(#blurGhost)" : tier === "mid" ? "url(#blurMid)" : "none",
             );
-          node.select(".label").transition().duration(300).style("opacity", st.label);
+          const lblEl = el.querySelector<SVGGElement>(".label");
+          if (lblEl) {
+            const fromL = Number.parseFloat(lblEl.style.opacity || "") || 1;
+            let lSpring = labelSprings.get(n.id);
+            if (!lSpring) {
+              lSpring = makeSpring();
+              labelSprings.set(n.id, lSpring);
+            }
+            lSpring.to(fromL, st.label, (v) => {
+              lblEl.style.opacity = String(v);
+            });
+          }
           const rs = node.select<SVGGElement>(".ring-slot") as D3Selection<SVGGElement>;
           rs.selectAll("*").remove();
           if (n.id === selId) drawSelectionRing(rs, radiusOf(n), TYPE[n.type as NodeKind].glow);
@@ -497,6 +527,10 @@ export const ViewDomain = forwardRef<ViewHandle, { width: number; height: number
 
       return () => {
         sim.stop();
+        for (const s of nodeSprings.values()) s.stop();
+        for (const s of labelSprings.values()) s.stop();
+        nodeSprings.clear();
+        labelSprings.clear();
         tiersRef.current = null;
         apiRef.current = null;
       };
@@ -592,4 +626,140 @@ function hullPath(points: [number, number][], pad: number): string {
   const hull = convexHull(pts);
   const expanded = expandHull(hull, pad);
   return smoothClosedPath(expanded);
+}
+
+// ── projection meta ──────────────────────────────────────────────────────
+
+const DOMAIN_NODE_INDEX = new Map(ATLAS.domain.nodes.map((n) => [n.id, n]));
+
+export function viewDomainMeta(): ProjectionMeta {
+  const D = ATLAS.domain;
+  const countOf = (type: string): number =>
+    D.nodes.filter((n) => n.type === type).length;
+  return {
+    id: "domain",
+    label: "Domain",
+    eyebrow: "Bounded contexts",
+    title: "Atlas Stays",
+    stageTitle: "Domain",
+    stageMeta: `${D.nodes.length} elements · ${D.contexts.length} contexts · <span style="color:var(--coral)">1 drift</span>`,
+    layouts: [
+      { id: "contexts", label: "contexts" },
+      { id: "force", label: "force" },
+      { id: "radial", label: "radial" },
+    ],
+    defaultLayout: "contexts",
+    filters: [
+      { id: "aggregate", label: "Aggregate", color: tokens.magenta, count: countOf("aggregate") },
+      { id: "entity", label: "Entity", color: tokens.magentaHi, count: countOf("entity") },
+      { id: "value", label: "Value obj", color: tokens.magenta, count: countOf("value") },
+      { id: "useCase", label: "Use case", color: tokens.cyan, count: countOf("useCase") },
+      { id: "contract", label: "Contract", color: tokens.indigo, count: countOf("contract") },
+      { id: "decision", label: "Decision", color: tokens.violet, count: countOf("decision") },
+      { id: "actor", label: "Actor", color: tokens.text, count: countOf("actor") },
+    ],
+    legendTitle: "Shape = role",
+    legend: [
+      { glyph: "▦", label: "Tile · aggregate, contract" },
+      { glyph: "●", label: "Circle · entity" },
+      { glyph: "⬭", label: "Dashed · value object" },
+      { glyph: "◆", label: "Diamond · decision" },
+      { glyph: "◌", label: "Hollow · actor" },
+    ],
+  };
+}
+
+export function viewDomainOutliner(): OutlinerGroup[] {
+  const D = ATLAS.domain;
+  return [
+    {
+      section: "Bounded contexts",
+      rows: D.contexts.map((c) => ({
+        id: null,
+        label: c.label,
+        color: HUE[c.hue],
+        sub: `${D.nodes.filter((n) => n.ctx === c.id).length} elements`,
+      })),
+    },
+    {
+      section: "Aggregates",
+      rows: D.nodes
+        .filter((n) => n.type === "aggregate")
+        .map((n) => ({
+          id: n.id,
+          label: n.label,
+          color: tokens.magenta,
+          sub: n.root ? "root" : "",
+          badge: n.drift
+            ? { label: "drift", color: tokens.coral }
+            : n.frozen
+              ? { label: "frozen", color: tokens.lime }
+              : undefined,
+        })),
+    },
+    {
+      section: "Contracts",
+      rows: D.nodes
+        .filter((n) => n.type === "contract")
+        .map((n) => ({
+          id: n.id,
+          label: n.label,
+          color: tokens.indigo,
+          badge: { label: "frozen", color: tokens.lime },
+        })),
+    },
+  ];
+}
+
+export function viewDomainDescribe(id: string): InspectorModel | null {
+  const D = ATLAS.domain;
+  const n = DOMAIN_NODE_INDEX.get(id);
+  if (!n) return null;
+  const t = TYPE[n.type];
+  const ctx = D.contexts.find((c) => c.id === n.ctx);
+  const badges = [];
+  if (n.frozen) badges.push({ label: "FROZEN", color: tokens.lime, bg: "rgba(163,230,53,0.14)" });
+  if (n.drift) badges.push({ label: "DRIFT", color: tokens.coral, bg: "rgba(251,113,133,0.14)" });
+  if (n.ext) badges.push({ label: "EXTERNAL", color: tokens.textMute });
+
+  const props: InspectorModel["sections"][number]["props"] = [
+    { k: "kind", v: t.label },
+  ];
+  if (ctx) props.push({ k: "context", v: ctx.label, color: HUE[ctx.hue] });
+  if (n.type === "aggregate")
+    props.push({ k: "root", v: n.root ? "true" : "false", mono: true, color: tokens.violet });
+  if (n.type === "value")
+    props.push({ k: "identity", v: "none · by value", mono: true, color: tokens.magentaHi });
+  if (n.type === "contract") {
+    const version = n.label.split(" ").pop() ?? "";
+    props.push({ k: "version", v: version, mono: true });
+    props.push({ k: "idempotent", v: "true", mono: true, color: tokens.violet });
+  }
+
+  const rels: InspectorModel["sections"][number]["rels"] = [];
+  D.edges.forEach((e) => {
+    if (e.from === id) {
+      const o = DOMAIN_NODE_INDEX.get(e.to);
+      if (o) rels.push({ label: o.label, color: TYPE[o.type].glow, kind: e.kind, target: o.id });
+    } else if (e.to === id) {
+      const o = DOMAIN_NODE_INDEX.get(e.from);
+      if (o) rels.push({ label: o.label, color: TYPE[o.type].glow, kind: `← ${e.kind}`, target: o.id });
+    }
+  });
+
+  return {
+    type: n.type,
+    typeLabel: t.label,
+    title: n.label,
+    id: `node:${n.type}@${id}`,
+    badges,
+    sections: [
+      { title: "Schema", props },
+      { title: `Relations · ${rels.length}`, rels },
+    ],
+    actions:
+      n.type === "contract"
+        ? [{ label: "Re-derive", kind: "primary" }, { label: "Open", kind: "" }]
+        : [{ label: "Edit", kind: "primary" }, { label: "History", kind: "ghost" }],
+  };
 }
