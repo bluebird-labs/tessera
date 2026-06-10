@@ -34,17 +34,19 @@ export function TitleBar({ projectLabel, addPanel, onResetLayout }: TitleBarProp
       </div>
       <div className="tb-center">
         {addPanel ? (
-          <button
-            type="button"
-            className="ws-tool"
-            aria-haspopup="menu"
-            aria-expanded={addPanel.open}
-            onClick={addPanel.onToggle}
-          >
-            <span className="gl">＋</span>
-            <span>Add panel</span>
+          <span className="ws-tool-anchor">
+            <button
+              type="button"
+              className="ws-tool"
+              aria-haspopup="menu"
+              aria-expanded={addPanel.open}
+              onClick={addPanel.onToggle}
+            >
+              <span className="gl">＋</span>
+              <span>Add panel</span>
+            </button>
             {addPanel.open ? addPanel.menu : null}
-          </button>
+          </span>
         ) : null}
         {onResetLayout ? (
           <button type="button" className="ws-tool" onClick={onResetLayout}>

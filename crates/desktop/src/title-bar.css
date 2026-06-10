@@ -163,6 +163,11 @@
 
 /* ─── Add-panel menu (anchored to the + Add panel button) ────────────── */
 
+.ws-tool-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
 .ws-menu {
   position: absolute;
   top: 38px;
