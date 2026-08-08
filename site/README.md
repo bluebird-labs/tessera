@@ -60,4 +60,9 @@ The three design knobs that used to be live "tweaks" are now fixed production
 config at the top of `src/app.tsx` (`VIBE`, `ACCENT`, `CASCADE_MOTION`). Change
 them there to re-theme the whole page.
 
-The email capture posts to Buttondown — set `BUTTONDOWN_USER` in `src/cta.tsx`.
+The email capture posts to the Buttondown newsletter named by `BUTTONDOWN_USER`
+in `src/cta.tsx` (currently `sylvainestevez`). It submits with `fetch` instead of
+a native form navigation, so the visitor stays on the page and gets an inline
+confirmation; the embed endpoint answers cross-origin requests with
+`access-control-allow-origin: *`, so the response status is readable (200 =
+subscribed, and repeat submissions of the same address are idempotent).
