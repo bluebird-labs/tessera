@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 [`ABOUT.md`](ABOUT.md) is the source of truth for what Tessera is. Briefly: a knowledge-graph-centered ecosystem (desktop app, CLI, MCP server, cloud-backed graph) for engineers retaining architectural control as agents take on more work. Code and domain live in one graph; work flows through a cascade of frozen layers (contracts → use cases → placement → implementation), with annotations bound to stable node IDs and upstream edits propagating downstream automatically. Open-core: CLI, MCP server, single-user desktop app, and the graph schema/modeling primitives are OSS; the shared cloud graph + team/enterprise integrations are commercial.
 
-This repo is the open-core *foundation*. It ships the `tessera` CLI, a per-language indexer (`tessera index`), the canonical graph types (`tessera-graph`), and a TerminusDB persistence layer (`tessera-store`). The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
+This repo is the open-core *foundation*. It ships the `tessera` CLI, a per-language indexer (`tessera index`), the canonical graph types (`tessera-graph`), an abstract ingestion port (`tessera-store`) with a TerminusDB adapter behind it (`tessera-terminusdb`), and a Tauri desktop shell. The DDD/domain layer, cascading-contracts workflow, and review/UX surfaces described in `ABOUT.md` sit above this substrate and are not in this repo. When working here, don't expand scope into product, UI, or workflow concerns — the structural graph and the tooling around it are the unit of work.
+
+[`ARCHITECTURE.md`](ARCHITECTURE.md) holds the crate dependency graph and the ports-and-adapters boundaries (which crate may import which). Consult it before adding a dependency edge between crates.
 
 ## Build & test
 
@@ -16,7 +18,9 @@ Workspace uses Cargo with `resolver = "3"` and edition 2024; toolchain is pinned
 cargo xtask cli -- --help            # run the existing CLI from the repo root
 cargo xtask desktop                  # launch the Tauri desktop app
 cargo xtask desktop-build            # build the Vite UI and desktop crate
-cargo xtask check                    # fmt, clippy, CLI tests, desktop builds
+cargo xtask site                     # dev-serve the landing site
+cargo xtask site-build               # build the landing site
+cargo xtask check                    # fmt, clippy, CLI tests, desktop + site builds
 cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 ```
 
@@ -31,16 +35,28 @@ cargo test  -p tessera-cli -- <name> # single CLI test by name substring
 Flat workspace: every product crate lives directly under `crates/` (binary or library). Workspace members are `["crates/*", "xtask"]`. The repo-level automation crate `xtask` sits at the workspace root, following the canonical `cargo-xtask` pattern — it is not a product crate. Future product siblings should be named `tessera-<role>` and placed alongside the existing crates under `crates/`.
 
 - `crates/cli` — `tessera-cli` package, ships the `tessera` binary.
-- `crates/core` — `tessera-core` package, shared app identity metadata and the first home for app-neutral Rust logic.
+- `crates/core` — `tessera-core` package, shared app identity metadata plus `ingest()`, the generic bridge that drives an `Iterator<GraphEntry>` into any `IngestionSession`.
 - `crates/desktop` — `tessera-desktop` package, a minimal Tauri shell. Its Vite/React code is view-only: rendering, layout, view state, and Tauri command invocation.
-- `crates/graph` — `tessera-graph` package, the canonical graph types (`Mosaic`, `Tessera`, `Bond`, `TesseraKind`, `BondKind`, `FactValue`, `TesseraId`) and `Producer`/`Consumer` conformance traits. The normative specification is `crates/graph/SPEC.md`.
-- `crates/indexer` — `tessera-indexer` package. Discovers and spawns language extractors (currently TypeScript via `tsx`), reads their NDJSON output, and assembles a validated `Mosaic`.
-- `crates/store` — `tessera-store` package. Async `TerminusClient` (reqwest/basic-auth) for database and document CRUD against TerminusDB. Config from env vars (`TERMINUSDB_HOST`, `TERMINUSDB_PORT`, `TERMINUSDB_USER`, `TERMINUSDB_ADMIN_PASS`).
+- `crates/graph` — `tessera-graph` package, the canonical graph types (`Mosaic`, `Tessera`, `Bond`, `TesseraKind`, `BondKind`, `FactValue`, `TesseraId`, `GraphEntry`) and `Producer`/`Consumer` conformance traits. The normative specification is `crates/graph/SPEC.md`.
+- `crates/indexer` — `tessera-indexer` package. Discovers and spawns language extractors (currently TypeScript via `tsx`), reads their NDJSON output, and exposes both a streaming `ExtractorStream` and an `index()` call that assembles a validated `Mosaic`.
+- `crates/projects` — `tessera-projects` package. `SQLite`-backed registry of project folders the user has opened, for the desktop project picker. Deliberately separate from `tessera-store`: this is application metadata, not graph data.
+- `crates/store` — `tessera-store` package. The abstract ingestion *port*: `trait IngestionSession`, `IngestionStats`, `StoreError`, and the `MemorySession` test double. No HTTP, no async runtime, no TerminusDB — those live in the adapter.
+- `crates/terminusdb` — `tessera-terminusdb` package. The TerminusDB *adapter*: `TerminusSession` (implements `IngestionSession`), async `TerminusClient` (reqwest/basic-auth), `Tessera` ↔ JSON-LD mapping, batching, and database lifecycle. Config from env vars (`TERMINUSDB_HOST`, `TERMINUSDB_PORT`, `TERMINUSDB_USER`, `TERMINUSDB_ADMIN_PASS`). Its integration tests are `#[ignore]`d unless a TerminusDB instance is running (`docker-compose.yml` at repo root).
 - `extractors/ts` — TypeScript extractor (ts-morph), invoked as a child process by the indexer. Has its own `package.json`; pnpm-managed.
+- `site` — `@tessera/site`, the Vite/React landing page. Not a Cargo crate; built via `cargo xtask site-build` and deployed to Cloudflare Pages.
 - `xtask` — `tessera-xtask` package at the workspace root, the automation entrypoint exposed through the Cargo alias `cargo xtask`.
 - Shared deps live in `[workspace.dependencies]` in the root `Cargo.toml`; member crates reference them with `dep = { workspace = true }`.
-- pnpm is desktop UI tooling only. Prefer `cargo xtask desktop`, `cargo xtask desktop-build`, and `cargo xtask check`; direct pnpm commands under `crates/desktop` are debugging escape hatches.
+- pnpm covers the frontend workspaces only (`crates/desktop`, `extractors/ts`, `site` — see `pnpm-workspace.yaml`). Prefer `cargo xtask desktop`, `cargo xtask desktop-build`, `cargo xtask site-build`, and `cargo xtask check`; direct pnpm commands are debugging escape hatches.
 - Product/application behavior shared between CLI and desktop belongs in Rust crates under `crates/`, not in TypeScript. The desktop startup uses the extracted parchment logo asset at `crates/desktop/src/assets/tessera-logo-parchment.svg`; do not replace it with the full brand sheet or reintroduce the sheet labels.
+
+## Desktop UI state
+
+The desktop app currently has two halves, and the seam between them is open:
+
+- **Wired to Rust:** the project picker and project screen. `ProjectPicker` → `pick_project_folder` / `add_project` / `list_projects` → `tessera-projects`, then routing to `/project/:id`. The Tauri command surface is in `crates/desktop/src/main.rs`.
+- **Design prototype:** `AppShell` (the docking `Workspace`, the five panels under `src/panels/`, and the Domain/Data/Flow projections under `src/viz/`) renders hardcoded demo data from `src/viz/data.ts` — the "Atlas Stays" domain ported from the design reference. The `arch` and `ux` rail views are declared but off.
+
+No Tauri command runs the indexer or exposes a `Mosaic` to the frontend yet, so the projections have never rendered real graph data. When wiring that up, the pipeline belongs in Rust (`tessera-indexer` → `tessera-core::ingest`), with the frontend consuming a serialized view — not reimplementing traversal in TypeScript.
 
 ## Graph vocabulary
 
@@ -54,7 +70,7 @@ The spec and code use specific terms — don't substitute generic graph jargon:
 
 ## CI
 
-`.github/workflows/ci.yaml` runs five jobs: `fmt`, `clippy`, `test`, `coverage`, `desktop`. Coverage thresholds are enforced: 35% for `tessera-cli`, 77% for `tessera-graph`. The `clippy` and `test` jobs exclude `tessera-desktop` (it requires system GTK/webkit deps).
+`.github/workflows/ci.yaml` runs six jobs: `fmt`, `clippy`, `test`, `coverage`, `site`, `desktop`. Coverage thresholds are enforced: 35% for `tessera-cli`, 77% for `tessera-graph`. The `clippy` and `test` jobs exclude `tessera-desktop` (it requires system GTK/webkit deps); the `desktop` job installs those deps and builds it separately.
 
 ## CLI architecture
 
